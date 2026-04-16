@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 from urllib.parse import parse_qs, parse_qsl, urlencode, urlparse, urlunparse
 
+from clients.kau_admission_client import KAUAdmissionClient
 from clients.kau_career_client import KAUCareerClient
 from clients.kau_college_client import KAUCollegeClient
 from clients.kau_official_client import KAUOfficialClient
@@ -18,6 +19,7 @@ from config import (
 )
 from parsers.kau_career_parser import KAUCareerParser
 from parsers.kau_college_parser import KAUCollegeParser
+from parsers.kau_admission_parser import KAUAdmissionParser
 from parsers.kau_official_parser import KAUOfficialParser
 from parsers.kau_research_parser import KAUResearchParser
 from utils.logger import get_logger
@@ -83,6 +85,19 @@ def canonicalize_original_url(url: str) -> str:
                 compact_query["code"] = query["code"][-1]
             compact_query["mode"] = query["mode"][-1]
             compact_query["seq"] = query["seq"][-1]
+            normalized_query = urlencode(compact_query)
+            return urlunparse((scheme, netloc, path, "", normalized_query, ""))
+
+    # ibhak.kau.ac.kr 입학처 공지 상세 URL:
+    #   /admission/html/guide/noticeView.asp?p_board_id=BBS0004&p_board_idx=NNNN&page=..
+    # 중복에 영향 없는 page/search 파라미터를 제거한다.
+    if host.endswith("ibhak.kau.ac.kr") and path.endswith("/noticeView.asp"):
+        query = parse_qs(parsed.query, keep_blank_values=True)
+        if query.get("p_board_id") and query.get("p_board_idx"):
+            compact_query = {
+                "p_board_id": query["p_board_id"][-1],
+                "p_board_idx": query["p_board_idx"][-1],
+            }
             normalized_query = urlencode(compact_query)
             return urlunparse((scheme, netloc, path, "", normalized_query, ""))
 
@@ -651,11 +666,134 @@ def crawl_kau_research_board(
     return posts, failed_items
 
 
+def crawl_kau_admission_board(
+    board: dict,
+    *,
+    max_pages: int,
+    client: KAUAdmissionClient,
+    known_urls: set[str],
+) -> tuple[list[dict], list[dict]]:
+    parser = KAUAdmissionParser(
+        source_name=board["source_name"],
+        source_type=board["source_type"],
+        default_board_id=board["board_id"],
+        category_fallback=board.get("name"),
+    )
+
+    detail_urls: list[str] = []
+    seen_for_board: set[str] = set(known_urls)
+    target_posts = max(1, int(board.get("max_posts", DEFAULT_POSTS_PER_BOARD)))
+
+    for page in range(1, max_pages + 1):
+        page_url = client.build_notice_list_url(
+            list_url=board["list_url"],
+            board_id=board["board_id"],
+            site_type=board["site_type"],
+            page=page,
+        )
+        html = client.fetch_notice_list(
+            list_url=board["list_url"],
+            board_id=board["board_id"],
+            site_type=board["site_type"],
+            page=page,
+        )
+
+        if not html:
+            logger.error(
+                "[%s] 목록 요청 실패: page=%s, url=%s",
+                board["name"],
+                page,
+                page_url,
+            )
+            continue
+
+        page_urls = [canonicalize_original_url(url) for url in parser.parse_post_urls(html, page_url)]
+        new_page_urls = [url for url in page_urls if url not in seen_for_board]
+        seen_for_board.update(new_page_urls)
+
+        logger.info(
+            "[%s] 목록 파싱 완료: page=%s, collected=%s, new=%s",
+            board["name"],
+            page,
+            len(page_urls),
+            len(new_page_urls),
+        )
+        detail_urls.extend(new_page_urls)
+
+        if len(detail_urls) >= target_posts:
+            logger.info("[%s] 목표 수집 건수 도달(%s), 목록 순회 종료", board["name"], target_posts)
+            break
+
+        if not new_page_urls:
+            logger.info("[%s] 신규 URL 없음, page=%s에서 목록 순회 조기 종료", board["name"], page)
+            break
+
+    detail_urls = list(dict.fromkeys(detail_urls))[:target_posts]
+    logger.info(
+        "[%s] 중복 제거 후 상세 URL 수: %s (max_posts=%s)",
+        board["name"],
+        len(detail_urls),
+        target_posts,
+    )
+
+    posts: list[dict] = []
+    failed_items: list[dict] = []
+
+    for idx, detail_url in enumerate(detail_urls, start=1):
+        logger.info(
+            "[%s] 상세 수집 중 (%s/%s): %s",
+            board["name"],
+            idx,
+            len(detail_urls),
+            detail_url,
+        )
+
+        html = client.fetch_notice_detail(detail_url, referer=board["list_url"])
+        if not html:
+            failed_items.append(
+                {
+                    "board": board["name"],
+                    "url": detail_url,
+                    "reason": "request_failed",
+                }
+            )
+            continue
+
+        try:
+            post = parser.parse_post(html, detail_url)
+            post.original_url = canonicalize_original_url(post.original_url)
+            if not post.title or not post.content:
+                failed_items.append(
+                    {
+                        "board": board["name"],
+                        "url": detail_url,
+                        "reason": "required_field_empty",
+                    }
+                )
+                logger.warning("[%s] 필수 필드 누락으로 스킵: %s", board["name"], detail_url)
+                continue
+
+            posts.append(post.to_dict())
+            known_urls.add(post.original_url)
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("[%s] 상세 파싱 실패: %s", board["name"], detail_url)
+            failed_items.append(
+                {
+                    "board": board["name"],
+                    "url": detail_url,
+                    "reason": f"parse_error:{exc.__class__.__name__}",
+                }
+            )
+
+    return posts, failed_items
+
+
 def crawl_all_notices(max_pages: int, output_path: Path) -> tuple[list[dict], list[dict]]:
     official_client = KAUOfficialClient()
     career_client = KAUCareerClient()
     college_client = KAUCollegeClient()
     research_client = KAUResearchClient()
+    admission_client = KAUAdmissionClient()
 
     existing_posts = load_existing_posts(output_path)
     known_urls: set[str] = {
@@ -703,6 +841,13 @@ def crawl_all_notices(max_pages: int, output_path: Path) -> tuple[list[dict], li
                 board,
                 max_pages=max_pages,
                 client=research_client,
+                known_urls=known_urls,
+            )
+        elif board["board_type"] == "kau_admission":
+            posts, failed_items = crawl_kau_admission_board(
+                board,
+                max_pages=max_pages,
+                client=admission_client,
                 known_urls=known_urls,
             )
         else:

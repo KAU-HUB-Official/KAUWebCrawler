@@ -14,12 +14,14 @@
 | job_notice | 취업공지 | 대학일자리센터 | kau_career | https://career.kau.ac.kr/ko/dataroom/data | - | robots 차단 |
 | college_gc63585_notice | college.kau.ac.kr 공지(gc63585b) | 국제교류처 | kau_college | http://college.kau.ac.kr/web/pages/gc63585b.do | bbsId=0123 | 수집 가능 |
 | research_notice | 산학협력단 공지사항 | 연구협력처 | kau_research | https://research.kau.ac.kr/info/info_011.php | code=s2101 | 수집 가능 |
+| admission_notice | 입학처 공지사항 | 입학처 | kau_admission | https://ibhak.kau.ac.kr/admission/html/guide/notice.asp | p_board_id=BBS0004 | 수집 가능 |
 
 ## 홈페이지 분류
 - 공식홈: `kau.ac.kr`
 - 대학일자리센터: `career.kau.ac.kr`
 - 국제교류처: `college.kau.ac.kr`
 - 연구협력처: `research.kau.ac.kr`
+- 입학처: `ibhak.kau.ac.kr`
 
 ## 취업공지 차단 사유
 `https://career.kau.ac.kr/robots.txt`

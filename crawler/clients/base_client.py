@@ -3,7 +3,7 @@ from __future__ import annotations
 import random
 import time
 from typing import Any
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 from urllib.robotparser import RobotFileParser
 
 import requests
@@ -40,6 +40,8 @@ class BaseClient:
 
         self._robots_loaded = False
         self._robots_parser: RobotFileParser | None = None
+        self._robots_allow_paths: list[str] = []
+        self._robots_disallow_paths: list[str] = []
         self._request_count = 0
 
     def _load_robots(self) -> None:
@@ -63,13 +65,21 @@ class BaseClient:
                     robots_url,
                 )
                 return
-            parser.parse(response.text.splitlines())
+            robots_text = response.text
+            parser.parse(robots_text.splitlines())
             self._robots_parser = parser
+            self._parse_simple_robots_rules(robots_text)
         except requests.RequestException as exc:
             self.logger.warning("robots.txt 확인 실패: %s (%s)", robots_url, exc)
 
     def can_fetch(self, url: str) -> bool:
         self._load_robots()
+        simple_allowed = self._can_fetch_with_simple_rules(url)
+        if simple_allowed is not None:
+            if not simple_allowed:
+                self.logger.warning("robots.txt 정책으로 요청이 차단됨: %s", url)
+            return simple_allowed
+
         if self._robots_parser is None:
             return True
 
@@ -77,6 +87,115 @@ class BaseClient:
         if not allowed:
             self.logger.warning("robots.txt 정책으로 요청이 차단됨: %s", url)
         return allowed
+
+    def _parse_simple_robots_rules(self, robots_text: str) -> None:
+        """
+        RobotFileParser가 Allow 규칙을 충분히 반영하지 못하는 사이트를 위해
+        User-agent 그룹의 Allow/Disallow prefix를 함께 파싱한다.
+        """
+        self._robots_allow_paths = []
+        self._robots_disallow_paths = []
+
+        groups: list[dict[str, object]] = []
+        current_group: dict[str, object] | None = None
+
+        for raw_line in robots_text.splitlines():
+            line = raw_line.split("#", 1)[0].strip()
+            if not line or ":" not in line:
+                continue
+
+            directive, value = line.split(":", 1)
+            directive = directive.strip().lower()
+            value = value.strip()
+
+            if directive == "user-agent":
+                if current_group is None or bool(current_group["has_rules"]):
+                    current_group = {
+                        "agents": [],
+                        "allow": [],
+                        "disallow": [],
+                        "has_rules": False,
+                    }
+                    groups.append(current_group)
+                agents = current_group["agents"]
+                if isinstance(agents, list):
+                    agents.append(value.lower())
+                continue
+
+            if directive not in {"allow", "disallow"} or current_group is None:
+                continue
+
+            current_group["has_rules"] = True
+            if directive == "allow":
+                allow_rules = current_group["allow"]
+                if isinstance(allow_rules, list):
+                    allow_rules.append(value)
+            else:
+                disallow_rules = current_group["disallow"]
+                if isinstance(disallow_rules, list):
+                    disallow_rules.append(value)
+
+        if not groups:
+            return
+
+        user_agent = self.user_agent.lower()
+        specific_groups = [
+            group
+            for group in groups
+            if any(
+                isinstance(agent, str) and agent != "*" and agent in user_agent
+                for agent in group["agents"]  # type: ignore[index]
+            )
+        ]
+        target_groups = specific_groups or [
+            group
+            for group in groups
+            if any(agent == "*" for agent in group["agents"])  # type: ignore[index]
+        ]
+
+        for group in target_groups:
+            allow_rules = group.get("allow", [])
+            disallow_rules = group.get("disallow", [])
+            if isinstance(allow_rules, list):
+                for rule in allow_rules:
+                    if isinstance(rule, str) and rule:
+                        self._robots_allow_paths.append(rule)
+            if isinstance(disallow_rules, list):
+                for rule in disallow_rules:
+                    if isinstance(rule, str):
+                        # 빈 Disallow는 전체 허용 의미이므로 무시한다.
+                        if not rule:
+                            continue
+                        self._robots_disallow_paths.append(rule)
+
+    def _can_fetch_with_simple_rules(self, url: str) -> bool | None:
+        if not self._robots_allow_paths and not self._robots_disallow_paths:
+            return None
+
+        path = urlparse(url).path or "/"
+
+        best_rule_length = -1
+        best_rule_action = "allow"
+
+        for allow_rule in self._robots_allow_paths:
+            if path.startswith(allow_rule):
+                rule_length = len(allow_rule)
+                if rule_length > best_rule_length or (
+                    rule_length == best_rule_length and best_rule_action == "disallow"
+                ):
+                    best_rule_length = rule_length
+                    best_rule_action = "allow"
+
+        for disallow_rule in self._robots_disallow_paths:
+            if path.startswith(disallow_rule):
+                rule_length = len(disallow_rule)
+                if rule_length > best_rule_length:
+                    best_rule_length = rule_length
+                    best_rule_action = "disallow"
+
+        if best_rule_length == -1:
+            return True
+        return best_rule_action == "allow"
 
     def _sleep_between_requests(self) -> None:
         if self._request_count <= 0:

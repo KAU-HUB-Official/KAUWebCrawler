@@ -9,6 +9,8 @@ COLLEGE_BASE_URL = "http://college.kau.ac.kr"
 COLLEGE_NOTICE_LIST_URL = "http://college.kau.ac.kr/web/pages/gc63585b.do"
 RESEARCH_BASE_URL = "https://research.kau.ac.kr"
 RESEARCH_NOTICE_LIST_URL = "https://research.kau.ac.kr/info/info_011.php"
+ADMISSION_BASE_URL = "https://ibhak.kau.ac.kr"
+ADMISSION_NOTICE_LIST_URL = "https://ibhak.kau.ac.kr/admission/html/guide/notice.asp"
 
 SOURCE_NAME = "한국항공대학교 공식 홈페이지"
 SOURCE_TYPE = "university_official_notice"
@@ -18,6 +20,8 @@ COLLEGE_SOURCE_NAME = "한국항공대학교 college.kau.ac.kr 공지"
 COLLEGE_SOURCE_TYPE = "university_college_notice"
 RESEARCH_SOURCE_NAME = "한국항공대학교 산학협력단"
 RESEARCH_SOURCE_TYPE = "university_research_notice"
+ADMISSION_SOURCE_NAME = "한국항공대학교 입학처"
+ADMISSION_SOURCE_TYPE = "university_admission_notice"
 
 USER_AGENT = (
     "Mozilla/5.0 (compatible; KAU-Notice-Crawler/1.0; +https://kau.ac.kr)"
@@ -132,6 +136,17 @@ NOTICE_BOARDS = [
         "max_posts": DEFAULT_POSTS_PER_BOARD,
         "source_name": RESEARCH_SOURCE_NAME,
         "source_type": RESEARCH_SOURCE_TYPE,
+    },
+    {
+        "key": "admission_notice",
+        "name": "입학처 공지사항",
+        "board_type": "kau_admission",
+        "list_url": ADMISSION_NOTICE_LIST_URL,
+        "board_id": "BBS0004",
+        "site_type": "MAM0001",
+        "max_posts": DEFAULT_POSTS_PER_BOARD,
+        "source_name": ADMISSION_SOURCE_NAME,
+        "source_type": ADMISSION_SOURCE_TYPE,
     },
 ]
 
