@@ -12,6 +12,8 @@
 | covid_notice | 감염병 관리 공지사항 | kau_official | https://kau.ac.kr/kaulife/covidnoti.php | s1701 | 수집 가능 |
 | it_notice | IT공지사항 | kau_official | https://kau.ac.kr/kaulife/itnoti.php | s1801 | 수집 가능 |
 | job_notice | 취업공지 | kau_career | https://career.kau.ac.kr/ko/dataroom/data | - | robots 차단 |
+| college_gc63585_notice | college.kau.ac.kr 공지(gc63585b) | kau_college | http://college.kau.ac.kr/web/pages/gc63585b.do | bbsId=0123 | 수집 가능 |
+| research_notice | 산학협력단 공지사항 | kau_research | https://research.kau.ac.kr/info/info_011.php | code=s2101 | 수집 가능 |
 
 ## 취업공지 차단 사유
 `https://career.kau.ac.kr/robots.txt`

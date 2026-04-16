@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import random
 import time
+from typing import Any
 from urllib.parse import urljoin
 from urllib.robotparser import RobotFileParser
 
@@ -105,4 +106,41 @@ class BaseClient:
             return response.text
         except requests.RequestException as exc:
             self.logger.error("요청 실패: %s (%s)", url, exc)
+            return None
+
+    def post_json(
+        self,
+        url: str,
+        payload: dict[str, Any],
+        *,
+        referer: str | None = None,
+        extra_headers: dict[str, str] | None = None,
+    ) -> str | None:
+        if not self.can_fetch(url):
+            return None
+
+        self._sleep_between_requests()
+
+        headers = {
+            "Content-Type": "application/json; charset=utf-8",
+            "Accept": "application/json, text/plain, */*",
+        }
+        if referer:
+            headers["Referer"] = referer
+        if extra_headers:
+            headers.update(extra_headers)
+
+        try:
+            response = self.session.post(
+                url,
+                json=payload,
+                headers=headers,
+                timeout=self.timeout,
+                verify=self.verify_ssl,
+            )
+            self._request_count += 1
+            response.raise_for_status()
+            return response.text
+        except requests.RequestException as exc:
+            self.logger.error("JSON POST 요청 실패: %s (%s)", url, exc)
             return None
