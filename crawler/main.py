@@ -53,10 +53,14 @@ def canonicalize_original_url(url: str) -> str:
             normalized_query = urlencode(compact_query)
             return urlunparse((scheme, netloc, path, "", normalized_query, ""))
 
-    # 취업공지 상세 URL:
-    #   /ko/dataroom/data/view/{id}?p=1
+    # 대학일자리센터 상세 URL:
+    #   /ko/community/notice/view/{id}?p=1
+    #   /ko/dataroom/data/view/{id}?p=1 (기존 경로)
     # p 파라미터 제거.
-    if host.endswith("career.kau.ac.kr") and "/ko/dataroom/data/view/" in path:
+    if host.endswith("career.kau.ac.kr") and "/view/" in path and (
+        path.startswith("/ko/community/notice/")
+        or path.startswith("/ko/dataroom/data/")
+    ):
         return urlunparse((scheme, netloc, path.rstrip("/"), "", "", ""))
 
     # college.kau.ac.kr 공지 상세 URL:
@@ -274,8 +278,9 @@ def crawl_kau_career_board(
     detail_urls: list[str] = []
     seen_for_board: set[str] = set(known_urls)
     target_posts = max(1, int(board.get("max_posts", DEFAULT_POSTS_PER_BOARD)))
+    effective_max_pages = max(max_pages, int(board.get("min_pages", 1)))
 
-    for page in range(1, max_pages + 1):
+    for page in range(1, effective_max_pages + 1):
         page_url = client.build_notice_list_url(page)
 
         if not client.can_fetch(page_url):
@@ -884,6 +889,9 @@ def crawl_all_notices(max_pages: int, output_path: Path) -> tuple[list[dict], li
             FAILED_OUTPUT_FILE,
             len(all_failed_items),
         )
+    elif FAILED_OUTPUT_FILE.exists():
+        FAILED_OUTPUT_FILE.unlink()
+        logger.info("실패 항목이 없어 기존 실패 로그 파일 삭제: %s", FAILED_OUTPUT_FILE)
 
     return dedup_posts, all_failed_items
 

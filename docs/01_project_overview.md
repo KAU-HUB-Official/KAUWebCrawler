@@ -5,7 +5,7 @@
 
 ## 현재 범위
 - `kau.ac.kr` 공지 게시판 7종
-- `career.kau.ac.kr` 취업공지 게시판(정책상 차단 상태)
+- `career.kau.ac.kr` 대학일자리센터 공지사항 게시판(`https://career.kau.ac.kr/ko/community/notice`)
 
 ## 수집 데이터 포맷
 `Post` 모델 기준:
@@ -27,5 +27,5 @@
 - `robots.txt` 존중
 
 ## 현재 제한
-- 취업공지(`career.kau.ac.kr`)는 `robots.txt`에서 `Disallow: /`라 자동 수집 불가
+- `career.kau.ac.kr`는 robots 정책이 전면 차단이라, 현재 구현에서 `kau_career` 보드만 예외 처리
 - 일부 게시글은 이미지 본문 위주이며, 텍스트 대신 이미지 ALT/플레이스홀더로 저장

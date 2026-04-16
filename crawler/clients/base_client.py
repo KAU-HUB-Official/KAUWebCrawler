@@ -19,12 +19,14 @@ class BaseClient:
         user_agent: str,
         timeout: int,
         request_delay: tuple[float, float],
+        respect_robots: bool = True,
         verify_ssl: bool = True,
     ) -> None:
         self.base_url = base_url
         self.user_agent = user_agent
         self.timeout = timeout
         self.request_delay = request_delay
+        self.respect_robots = respect_robots
         self.verify_ssl = verify_ssl
 
         self.logger = get_logger(self.__class__.__name__)
@@ -73,6 +75,9 @@ class BaseClient:
             self.logger.warning("robots.txt 확인 실패: %s (%s)", robots_url, exc)
 
     def can_fetch(self, url: str) -> bool:
+        if not self.respect_robots:
+            return True
+
         self._load_robots()
         simple_allowed = self._can_fetch_with_simple_rules(url)
         if simple_allowed is not None:

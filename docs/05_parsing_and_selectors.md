@@ -21,14 +21,15 @@
 ## 취업공지 (`kau_career_parser.py`)
 
 ### 목록 URL
+- 페이지 URL: `https://career.kau.ac.kr/ko/community/notice`
 - 기본: `ul[data-role='table'] li.tbody span.title > a[href]`
-- 필터: `/view/` 포함 링크
+- 필터: `/ko/community/notice/view/` 포함 링크
 
 ### 상세 필드
 - 제목: `article[data-role='post'] .header h5`
 - 작성일: `article[data-role='post'] .header li.date time`
 - 본문: `#ModuleBoardunivBodyPrintBox [data-role='wysiwyg-content']`
-- 첨부: `[data-module='attachment'] a.file` (`data-download` 우선)
+- 첨부: `[data-module='attachment'] a[href]` (`data-download` 우선)
 - 카테고리: `div.nbreadcrumb span` 마지막 값
 
 ## college.kau.ac.kr 공지 (`kau_college_parser.py`)
@@ -80,7 +81,7 @@
 
 ## URL 정규화(중복 방지)
 - `kau.ac.kr` 상세 URL은 `code`, `mode`, `seq`만 남기고 `page/searchkey/searchvalue`는 제거합니다.
-- `career.kau.ac.kr` 상세 URL은 `/view/{id}` 경로만 유지하고 `?p=`는 제거합니다.
+- `career.kau.ac.kr` 상세 URL은 `/ko/community/notice/view/{id}` 경로만 유지하고 `?p=`는 제거합니다.
 - `college.kau.ac.kr` 상세 URL은 `bbsId`, `nttId`, `mnuId`만 유지합니다.
 - `research.kau.ac.kr` 상세 URL은 `code`, `mode`, `seq`만 유지합니다.
 - `ibhak.kau.ac.kr` 상세 URL은 `p_board_id`, `p_board_idx`만 유지합니다.

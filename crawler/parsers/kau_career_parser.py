@@ -44,7 +44,7 @@ class KAUCareerParser(BaseParser):
             urls.append(absolute_url)
 
         if not urls:
-            for link in soup.select("a[href*='/view/'][href*='/ko/dataroom/data']"):
+            for link in soup.select("a[href*='/view/'][href*='/ko/community/notice']"):
                 href = (link.get("href") or "").strip()
                 if href:
                     urls.append(urljoin(page_url, href))
@@ -104,9 +104,15 @@ class KAUCareerParser(BaseParser):
                 lines.append(text)
 
         if not lines:
-            return self.normalize_newlines(
-                self.normalize_whitespace(content_node.get_text(" ", strip=True))
-            )
+            text = self.normalize_whitespace(content_node.get_text(" ", strip=True))
+            if text:
+                return self.normalize_newlines(text)
+
+            image_count = len(content_node.select("img"))
+            if image_count > 0:
+                return f"[이미지 본문] 텍스트 본문 없음 (이미지 {image_count}개)"
+
+            return ""
 
         return self.normalize_newlines("\n".join(lines))
 
@@ -145,9 +151,11 @@ class KAUCareerParser(BaseParser):
     def _extract_attachments(self, soup: BeautifulSoup, detail_url: str) -> list[dict]:
         attachments: list[dict] = []
 
-        # 첨부는 data-module='attachment' 내 a.file의 data-download 속성에 실제 다운로드 경로가 들어간다.
-        for link in soup.select("[data-module='attachment'] a.file"):
+        # 첨부는 data-module='attachment' 내 a[href] 링크에 들어있으며
+        # 일부는 data-download, 일부는 href에 직접 다운로드 경로를 담는다.
+        for link in soup.select("[data-module='attachment'] a[href]"):
             name = self.normalize_whitespace(link.get_text(" ", strip=True))
+            name = re.sub(r"^\([^)]{1,20}\)\s*", "", name).strip()
             raw_url = (link.get("data-download") or link.get("href") or "").strip()
             if not raw_url:
                 continue

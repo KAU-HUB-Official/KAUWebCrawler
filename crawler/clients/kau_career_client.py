@@ -18,6 +18,8 @@ class KAUCareerClient(BaseClient):
             user_agent=USER_AGENT,
             timeout=REQUEST_TIMEOUT_SECONDS,
             request_delay=REQUEST_DELAY_SECONDS,
+            # 사용자 요청으로 career 게시판은 robots 검사 예외 처리한다.
+            respect_robots=False,
             verify_ssl=VERIFY_SSL,
         )
         self.notice_list_url = CAREER_NOTICE_LIST_URL

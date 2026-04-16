@@ -4,7 +4,7 @@ BASE_URL = "https://kau.ac.kr"
 START_URL = "https://kau.ac.kr/index/main.php"
 NOTICE_LIST_URL = "https://kau.ac.kr/kaulife/notice.php"
 CAREER_BASE_URL = "https://career.kau.ac.kr"
-CAREER_NOTICE_LIST_URL = "https://career.kau.ac.kr/ko/dataroom/data"
+CAREER_NOTICE_LIST_URL = "https://career.kau.ac.kr/ko/community/notice"
 COLLEGE_BASE_URL = "http://college.kau.ac.kr"
 COLLEGE_NOTICE_LIST_URL = "http://college.kau.ac.kr/web/pages/gc63585b.do"
 RESEARCH_BASE_URL = "https://research.kau.ac.kr"
@@ -106,9 +106,10 @@ NOTICE_BOARDS = [
     },
     {
         "key": "job_notice",
-        "name": "취업공지",
+        "name": "대학일자리센터 공지사항",
         "board_type": "kau_career",
         "list_url": CAREER_NOTICE_LIST_URL,
+        "min_pages": 2,
         "max_posts": DEFAULT_POSTS_PER_BOARD,
         "source_name": CAREER_SOURCE_NAME,
         "source_type": CAREER_SOURCE_TYPE,

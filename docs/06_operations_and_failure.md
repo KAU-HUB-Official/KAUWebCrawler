@@ -18,7 +18,7 @@
 4. 특정 URL 샘플 수동 점검
 
 ## 자주 보는 케이스
-- `career.kau.ac.kr` 취업공지: robots 정책 차단으로 정상적인 `robots_disallowed` 발생
+- `career.kau.ac.kr` 공지: 사용자 요청으로 `kau_career` 보드는 robots 검사 예외 처리됨
 - 이미지 중심 본문: 텍스트 대신 이미지 fallback 본문 생성
 
 ## 중복 오버헤드 관련 동작
