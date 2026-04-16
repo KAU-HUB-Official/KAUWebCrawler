@@ -6,6 +6,13 @@
 ## 현재 범위
 - `kau.ac.kr` 공지 게시판 7종
 - `career.kau.ac.kr` 대학일자리센터 공지사항 게시판(`https://career.kau.ac.kr/ko/community/notice`)
+- `college.kau.ac.kr` 공지 게시판 2종
+  - 국제교류처(`gc63585b`)
+  - 인권센터(`gc22052b`)
+- `research.kau.ac.kr` 산학협력단 공지사항
+- `ibhak.kau.ac.kr` 입학처 공지사항
+- `ctl.kau.ac.kr` 교수학습센터 공지사항
+- `lib.kau.ac.kr` 학술정보관 일반공지
 
 ## 수집 데이터 포맷
 `Post` 모델 기준:

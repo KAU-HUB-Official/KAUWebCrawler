@@ -35,9 +35,13 @@
 ## college.kau.ac.kr 공지 (`kau_college_parser.py`)
 
 ### 목록 URL
-- 페이지 URL: `http://college.kau.ac.kr/web/pages/gc63585b.do`
+- 페이지 URL:
+  - `http://college.kau.ac.kr/web/pages/gc63585b.do` (국제교류처)
+  - `http://college.kau.ac.kr/web/pages/gc22052b.do` (인권센터)
 - 실제 목록 데이터: `POST /web/bbs/bbsListApi.gen` (JSON)
-- 식별값: `siteFlag=inter_www`, `bbsId=0123`, `pageIndex`, `bbsAuth=30`
+- 식별값:
+  - 국제교류처: `siteFlag=inter_www`, `bbsId=0123`, `mnuId=gc63585b`
+  - 인권센터: `siteFlag=rights_www`, `bbsId=0142`, `mnuId=gc22052b`
 
 ### 상세 필드
 - 상세 데이터: `POST /web/bbs/bbsViewApi.gen` (JSON)
@@ -46,6 +50,37 @@
 - 본문 HTML: `result.nttCn` (BeautifulSoup 텍스트 정리)
 - 첨부: `resultFile[*]` → `/web/bbs/FileDownApi.gen?atchFileId=...&fileSn=...&mnuId=...`
 - 카테고리: board name fallback (`college.kau.ac.kr 공지(gc63585b)`)
+
+## 교수학습센터 공지 (`kau_ctl_parser.py`)
+
+### 목록 URL
+- 페이지 URL: `https://ctl.kau.ac.kr/notice/list.php?code=s1101`
+- 목록 선택자: `table.table_01 td.tit > a[href]`
+- 필터: `mode=read` + `seq=` 포함 링크만 수집
+
+### 상세 필드
+- 제목: `div.view_header h4`
+- 작성일: `div.view_header ul.info li` (`작성날짜 : YYYY-MM-DD HH:MM:SS`)
+- 본문: `div.view_conts`
+- 첨부: `div.attach a[href], div.view_attatch a[href], li.attatch a[href]`
+- 카테고리: `div.location span.here` (없으면 board name fallback)
+
+## 학술정보관 일반공지 (`kau_library_parser.py`)
+
+### 목록 URL
+- 페이지 URL: `https://lib.kau.ac.kr/sb/default_notice_list.mir`
+- 목록 선택자: `tr[onclick*='go_view(']`
+- 링크 규칙: `onclick=\"go_view('4955','default_notice_view');\"`에서 `sb_no` 추출
+  - 상세 URL: `/sb/default_notice_view.mir?sb_no=...`
+
+### 상세 필드
+- 제목: `div.sc_view_header p.title`
+- 작성일: `div.sc_view_header ul li` 내 날짜 텍스트
+- 본문: `div.view_content`
+- 첨부: `dl.sc_board dd a[onclick*='download_file(']`
+  - `download_file('file_no','file_mno')`를
+    `/sb/filedownload.mir?file_no=...&file_mno=...&sb_skin=default&sb_code=notice`로 변환
+- 카테고리: 상단 제목 selector fallback 후 board name 사용
 
 ## 산학협력단 공지 (`kau_research_parser.py`)
 
@@ -85,3 +120,5 @@
 - `college.kau.ac.kr` 상세 URL은 `bbsId`, `nttId`, `mnuId`만 유지합니다.
 - `research.kau.ac.kr` 상세 URL은 `code`, `mode`, `seq`만 유지합니다.
 - `ibhak.kau.ac.kr` 상세 URL은 `p_board_id`, `p_board_idx`만 유지합니다.
+- `ctl.kau.ac.kr` 상세 URL은 `code`, `mode`, `seq`만 유지합니다.
+- `lib.kau.ac.kr` 상세 URL은 `sb_no`만 유지합니다.

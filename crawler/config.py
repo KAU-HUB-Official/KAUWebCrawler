@@ -11,6 +11,11 @@ RESEARCH_BASE_URL = "https://research.kau.ac.kr"
 RESEARCH_NOTICE_LIST_URL = "https://research.kau.ac.kr/info/info_011.php"
 ADMISSION_BASE_URL = "https://ibhak.kau.ac.kr"
 ADMISSION_NOTICE_LIST_URL = "https://ibhak.kau.ac.kr/admission/html/guide/notice.asp"
+CTL_BASE_URL = "https://ctl.kau.ac.kr"
+CTL_NOTICE_LIST_URL = "https://ctl.kau.ac.kr/notice/list.php"
+LIBRARY_BASE_URL = "https://lib.kau.ac.kr"
+LIBRARY_NOTICE_LIST_URL = "https://lib.kau.ac.kr/sb/default_notice_list.mir"
+HUMAN_RIGHTS_NOTICE_LIST_URL = "http://college.kau.ac.kr/web/pages/gc22052b.do"
 
 SOURCE_NAME = "한국항공대학교 공식 홈페이지"
 SOURCE_TYPE = "university_official_notice"
@@ -22,6 +27,12 @@ RESEARCH_SOURCE_NAME = "한국항공대학교 산학협력단"
 RESEARCH_SOURCE_TYPE = "university_research_notice"
 ADMISSION_SOURCE_NAME = "한국항공대학교 입학처"
 ADMISSION_SOURCE_TYPE = "university_admission_notice"
+CTL_SOURCE_NAME = "한국항공대학교 교수학습센터"
+CTL_SOURCE_TYPE = "university_ctl_notice"
+LIBRARY_SOURCE_NAME = "한국항공대학교 학술정보관"
+LIBRARY_SOURCE_TYPE = "university_library_notice"
+HUMAN_RIGHTS_SOURCE_NAME = "한국항공대학교 인권센터"
+HUMAN_RIGHTS_SOURCE_TYPE = "university_human_rights_notice"
 
 USER_AGENT = (
     "Mozilla/5.0 (compatible; KAU-Notice-Crawler/1.0; +https://kau.ac.kr)"
@@ -148,6 +159,39 @@ NOTICE_BOARDS = [
         "max_posts": DEFAULT_POSTS_PER_BOARD,
         "source_name": ADMISSION_SOURCE_NAME,
         "source_type": ADMISSION_SOURCE_TYPE,
+    },
+    {
+        "key": "ctl_notice",
+        "name": "교수학습센터 공지사항",
+        "board_type": "kau_ctl",
+        "list_url": CTL_NOTICE_LIST_URL,
+        "code": "s1101",
+        "max_posts": DEFAULT_POSTS_PER_BOARD,
+        "source_name": CTL_SOURCE_NAME,
+        "source_type": CTL_SOURCE_TYPE,
+    },
+    {
+        "key": "library_notice",
+        "name": "학술정보관 일반공지",
+        "board_type": "kau_library",
+        "list_url": LIBRARY_NOTICE_LIST_URL,
+        "max_posts": DEFAULT_POSTS_PER_BOARD,
+        "source_name": LIBRARY_SOURCE_NAME,
+        "source_type": LIBRARY_SOURCE_TYPE,
+    },
+    {
+        "key": "human_rights_notice",
+        "name": "인권센터 공지사항",
+        "board_type": "kau_college",
+        "list_url": HUMAN_RIGHTS_NOTICE_LIST_URL,
+        "site_flag": "rights_www",
+        "bbs_id": "0142",
+        "mnu_id": "gc22052b",
+        "bbs_auth": "30",
+        "page_unit": DEFAULT_POSTS_PER_BOARD,
+        "max_posts": DEFAULT_POSTS_PER_BOARD,
+        "source_name": HUMAN_RIGHTS_SOURCE_NAME,
+        "source_type": HUMAN_RIGHTS_SOURCE_TYPE,
     },
 ]
 
