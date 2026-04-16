@@ -82,6 +82,34 @@
     `/sb/filedownload.mir?file_no=...&file_mno=...&sb_skin=default&sb_code=notice`로 변환
 - 카테고리: 상단 제목 selector fallback 후 board name 사용
 
+## 비행교육원 공지 (`kau_ftc_parser.py`)
+
+### 목록 URL
+- 페이지 URL: `https://ftc.kau.ac.kr/info/notice_02.php`
+- 목록 선택자: `a[href*='mode=read'][href*='seq=']`
+- 링크 규칙: `notice_02.php?...&mode=read&seq=...`
+
+### 상세 필드
+- 제목: `div.view_header h4`
+- 작성일: `div.view_header ul.view_info li` 내 날짜 값 (`YYYY-MM-DD`)
+- 본문: `div.view_conts`
+- 첨부: `div.attach a[href]` (fallback: `div.view_attatch`, `li.attatch`)
+- 카테고리: `view_info` 첫 항목 fallback
+
+## 항공기술교육원 공지 (`kau_amtc_parser.py`)
+
+### 목록 URL
+- 페이지 URL: `http://amtc.kau.ac.kr/bbs/board.php?bo_table=notice`
+- 목록 선택자: `a[href*='bo_table='][href*='wr_id=']`
+- 링크 규칙: `board.php?bo_table=notice&wr_id=...`
+
+### 상세 필드
+- 제목: `#bo_v_title` (`.bo_v_tit` fallback)
+- 작성일: `strong.if_date` (`YY-MM-DD` 또는 `YYYY-MM-DD` → `YYYY-MM-DD` 정규화)
+- 본문: `#bo_v_con` (`#bo_v_atc` fallback)
+- 첨부: `#bo_v_file a[href]`, `a[href*='download.php']`
+- 카테고리: `<title>` 앞부분(예: `일반/학사공지`) fallback
+
 ## 산학협력단 공지 (`kau_research_parser.py`)
 
 ### 목록 URL
@@ -122,3 +150,5 @@
 - `ibhak.kau.ac.kr` 상세 URL은 `p_board_id`, `p_board_idx`만 유지합니다.
 - `ctl.kau.ac.kr` 상세 URL은 `code`, `mode`, `seq`만 유지합니다.
 - `lib.kau.ac.kr` 상세 URL은 `sb_no`만 유지합니다.
+- `ftc.kau.ac.kr` 상세 URL은 `code`, `mode`, `seq`만 유지합니다.
+- `amtc.kau.ac.kr` 상세 URL은 `bo_table`, `wr_id`만 유지합니다.

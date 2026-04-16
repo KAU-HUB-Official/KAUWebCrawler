@@ -13,6 +13,10 @@
 - `ibhak.kau.ac.kr` 입학처 공지사항
 - `ctl.kau.ac.kr` 교수학습센터 공지사항
 - `lib.kau.ac.kr` 학술정보관 일반공지
+- `ftc.kau.ac.kr` 비행교육원 공지사항
+- `amtc.kau.ac.kr` 항공기술교육원 공지사항
+- `college.kau.ac.kr` 생활관/항공교통관제교육원/항공안전교육원/평생교육원 공지사항
+- `aerospacemuseum.or.kr` 박물관 공지사항(실제 수집은 `college.kau.ac.kr` 공지 페이지)
 
 ## 수집 데이터 포맷
 `Post` 모델 기준:

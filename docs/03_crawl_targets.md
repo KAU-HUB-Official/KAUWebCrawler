@@ -18,6 +18,13 @@
 | admission_notice | 입학처 공지사항 | 입학처 | kau_admission | https://ibhak.kau.ac.kr/admission/html/guide/notice.asp | p_board_id=BBS0004 | 수집 가능 |
 | ctl_notice | 교수학습센터 공지사항 | 교수학습센터 | kau_ctl | https://ctl.kau.ac.kr/notice/list.php?code=s1101 | code=s1101 | 수집 가능 |
 | library_notice | 학술정보관 일반공지 | 학술정보관 | kau_library | https://lib.kau.ac.kr/sb/default_notice_list.mir | sb_no 기반 | 수집 가능 |
+| dorm_notice | 생활관 일반공지 | 생활관 | kau_college | http://college.kau.ac.kr/web/pages/gc65332b.do | bbsId=0230 | 수집 가능 |
+| museum_notice | 항공우주박물관 공지사항 | 박물관 | kau_college | http://www.aerospacemuseum.or.kr/ (실제: gc73673b) | bbsId=0276 | 수집 가능 |
+| ftc_notice | 비행교육원 공지사항 | 비행교육원 | kau_ftc | https://ftc.kau.ac.kr/info/notice_02.php | code=s1102 | 수집 가능 |
+| atci_notice | 항공교통관제교육원 공지사항 | 항공교통관제교육원 | kau_college | http://college.kau.ac.kr/web/pages/gc80226b.do | bbsId=0226 | 수집 가능 |
+| amtc_notice | 항공기술교육원 공지사항 | 항공기술교육원 | kau_amtc | http://amtc.kau.ac.kr/bbs/board.php?bo_table=notice | bo_table=notice | 수집 가능 |
+| kasi_notice | 항공안전교육원 공지사항 | 항공안전교육원 | kau_college | http://college.kau.ac.kr/web/index.do?siteFlag=kasi_www (실제: gc63977b) | bbsId=0136 | 수집 가능 |
+| life_notice | 평생교육원 공지사항 | 평생교육원 | kau_college | http://college.kau.ac.kr/web/index.do?siteFlag=life_www (실제: gc11101b) | bbsId=0120 | 수집 가능 |
 
 ## 홈페이지 분류
 - 공식홈: `kau.ac.kr`
@@ -28,6 +35,13 @@
 - 입학처: `ibhak.kau.ac.kr`
 - 교수학습센터: `ctl.kau.ac.kr`
 - 학술정보관: `lib.kau.ac.kr`
+- 생활관: `college.kau.ac.kr`
+- 박물관: `aerospacemuseum.or.kr` / `college.kau.ac.kr`
+- 비행교육원: `ftc.kau.ac.kr`
+- 항공교통관제교육원: `college.kau.ac.kr`
+- 항공기술교육원: `amtc.kau.ac.kr`
+- 항공안전교육원: `college.kau.ac.kr`
+- 평생교육원: `college.kau.ac.kr`
 
 ## 대학일자리센터 정책 처리
 `career.kau.ac.kr`는 robots 정책이 전면 차단으로 설정되어 있어,

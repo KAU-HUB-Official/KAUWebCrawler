@@ -16,6 +16,10 @@ CTL_NOTICE_LIST_URL = "https://ctl.kau.ac.kr/notice/list.php"
 LIBRARY_BASE_URL = "https://lib.kau.ac.kr"
 LIBRARY_NOTICE_LIST_URL = "https://lib.kau.ac.kr/sb/default_notice_list.mir"
 HUMAN_RIGHTS_NOTICE_LIST_URL = "http://college.kau.ac.kr/web/pages/gc22052b.do"
+FTC_BASE_URL = "https://ftc.kau.ac.kr"
+FTC_NOTICE_LIST_URL = "https://ftc.kau.ac.kr/info/notice_02.php"
+AMTC_BASE_URL = "http://amtc.kau.ac.kr"
+AMTC_NOTICE_LIST_URL = "http://amtc.kau.ac.kr/bbs/board.php"
 
 SOURCE_NAME = "한국항공대학교 공식 홈페이지"
 SOURCE_TYPE = "university_official_notice"
@@ -33,6 +37,20 @@ LIBRARY_SOURCE_NAME = "한국항공대학교 학술정보관"
 LIBRARY_SOURCE_TYPE = "university_library_notice"
 HUMAN_RIGHTS_SOURCE_NAME = "한국항공대학교 인권센터"
 HUMAN_RIGHTS_SOURCE_TYPE = "university_human_rights_notice"
+DORM_SOURCE_NAME = "한국항공대학교 생활관"
+DORM_SOURCE_TYPE = "university_dormitory_notice"
+MUSEUM_SOURCE_NAME = "한국항공대학교 항공우주박물관"
+MUSEUM_SOURCE_TYPE = "university_museum_notice"
+FTC_SOURCE_NAME = "한국항공대학교 비행교육원"
+FTC_SOURCE_TYPE = "university_ftc_notice"
+ATCI_SOURCE_NAME = "한국항공대학교 항공교통관제교육원"
+ATCI_SOURCE_TYPE = "university_atci_notice"
+AMTC_SOURCE_NAME = "한국항공대학교 항공기술교육원"
+AMTC_SOURCE_TYPE = "university_amtc_notice"
+KASI_SOURCE_NAME = "한국항공대학교 항공안전교육원"
+KASI_SOURCE_TYPE = "university_kasi_notice"
+LIFE_SOURCE_NAME = "한국항공대학교 평생교육원"
+LIFE_SOURCE_TYPE = "university_life_notice"
 
 USER_AGENT = (
     "Mozilla/5.0 (compatible; KAU-Notice-Crawler/1.0; +https://kau.ac.kr)"
@@ -192,6 +210,99 @@ NOTICE_BOARDS = [
         "max_posts": DEFAULT_POSTS_PER_BOARD,
         "source_name": HUMAN_RIGHTS_SOURCE_NAME,
         "source_type": HUMAN_RIGHTS_SOURCE_TYPE,
+    },
+    {
+        "key": "dorm_notice",
+        "name": "생활관 일반공지",
+        "board_type": "kau_college",
+        "list_url": "http://college.kau.ac.kr/web/pages/gc65332b.do",
+        "site_flag": "dorm_www",
+        "bbs_id": "0230",
+        "mnu_id": "gc65332b",
+        "bbs_auth": "30",
+        "page_unit": DEFAULT_POSTS_PER_BOARD,
+        "max_posts": DEFAULT_POSTS_PER_BOARD,
+        "source_name": DORM_SOURCE_NAME,
+        "source_type": DORM_SOURCE_TYPE,
+    },
+    {
+        "key": "museum_notice",
+        "name": "항공우주박물관 공지사항",
+        "board_type": "kau_college",
+        # aerospacemuseum.or.kr는 frame으로 college.kau.ac.kr 공지 페이지(gc73673b)를 로드한다.
+        "list_url": "http://college.kau.ac.kr/web/pages/gc73673b.do",
+        "site_flag": "museum",
+        "bbs_id": "0276",
+        "mnu_id": "gc73673b",
+        "bbs_auth": "30",
+        "page_unit": DEFAULT_POSTS_PER_BOARD,
+        "max_posts": DEFAULT_POSTS_PER_BOARD,
+        "source_name": MUSEUM_SOURCE_NAME,
+        "source_type": MUSEUM_SOURCE_TYPE,
+    },
+    {
+        "key": "ftc_notice",
+        "name": "비행교육원 공지사항",
+        "board_type": "kau_ftc",
+        "list_url": FTC_NOTICE_LIST_URL,
+        "code": "s1102",
+        "max_posts": DEFAULT_POSTS_PER_BOARD,
+        "source_name": FTC_SOURCE_NAME,
+        "source_type": FTC_SOURCE_TYPE,
+    },
+    {
+        "key": "atci_notice",
+        "name": "항공교통관제교육원 공지사항",
+        "board_type": "kau_college",
+        "list_url": "http://college.kau.ac.kr/web/pages/gc80226b.do",
+        "site_flag": "atci",
+        "bbs_id": "0226",
+        "mnu_id": "gc80226b",
+        "bbs_auth": "30",
+        "page_unit": DEFAULT_POSTS_PER_BOARD,
+        "max_posts": DEFAULT_POSTS_PER_BOARD,
+        "source_name": ATCI_SOURCE_NAME,
+        "source_type": ATCI_SOURCE_TYPE,
+    },
+    {
+        "key": "amtc_notice",
+        "name": "항공기술교육원 공지사항",
+        "board_type": "kau_amtc",
+        "list_url": AMTC_NOTICE_LIST_URL,
+        "bo_table": "notice",
+        "max_posts": DEFAULT_POSTS_PER_BOARD,
+        "source_name": AMTC_SOURCE_NAME,
+        "source_type": AMTC_SOURCE_TYPE,
+    },
+    {
+        "key": "kasi_notice",
+        "name": "항공안전교육원 공지사항",
+        "board_type": "kau_college",
+        # index.do(siteFlag=kasi_www)에서 커뮤니티 > 공지사항(gc63977b) 페이지를 사용한다.
+        "list_url": "http://college.kau.ac.kr/web/pages/gc63977b.do",
+        "site_flag": "kasi_www",
+        "bbs_id": "0136",
+        "mnu_id": "gc63977b",
+        "bbs_auth": "30",
+        "page_unit": DEFAULT_POSTS_PER_BOARD,
+        "max_posts": DEFAULT_POSTS_PER_BOARD,
+        "source_name": KASI_SOURCE_NAME,
+        "source_type": KASI_SOURCE_TYPE,
+    },
+    {
+        "key": "life_notice",
+        "name": "평생교육원 공지사항",
+        "board_type": "kau_college",
+        # index.do(siteFlag=life_www)에서 커뮤니티 > 공지사항(gc11101b) 페이지를 사용한다.
+        "list_url": "http://college.kau.ac.kr/web/pages/gc11101b.do",
+        "site_flag": "life_www",
+        "bbs_id": "0120",
+        "mnu_id": "gc11101b",
+        "bbs_auth": "30",
+        "page_unit": DEFAULT_POSTS_PER_BOARD,
+        "max_posts": DEFAULT_POSTS_PER_BOARD,
+        "source_name": LIFE_SOURCE_NAME,
+        "source_type": LIFE_SOURCE_TYPE,
     },
 ]
 
