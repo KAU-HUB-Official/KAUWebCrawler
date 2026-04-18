@@ -36,3 +36,4 @@ htmlcov/
 
 # Runtime crawler outputs
 output/
+Crawler/output/
