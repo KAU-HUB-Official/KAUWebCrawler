@@ -32,10 +32,10 @@ class KAULibraryParser(BaseParser):
         self.category_fallback = category_fallback
         self.base_url = base_url
 
-    def parse_post_urls(self, html: str, page_url: str) -> list[str]:
+    def parse_post_items(self, html: str, page_url: str) -> list[dict]:
         soup = BeautifulSoup(html, "html.parser")
 
-        urls: list[str] = []
+        items: list[dict] = []
 
         # 목록 행은 onclick="go_view('4955','default_notice_view');" 패턴을 사용한다.
         for row in soup.select("tr[onclick*='go_view(']"):
@@ -46,16 +46,58 @@ class KAULibraryParser(BaseParser):
 
             sb_no = match.group(1)
             params = urlencode({"sb_no": sb_no})
-            urls.append(urljoin(self.base_url, f"/sb/default_notice_view.mir?{params}"))
+            classes = set(row.get("class") or [])
+            marker_text = self.normalize_whitespace(row.get_text(" ", strip=True))
+            is_permanent_notice = "info" in classes or "공지" in marker_text
+
+            items.append(
+                {
+                    "url": urljoin(self.base_url, f"/sb/default_notice_view.mir?{params}"),
+                    "is_permanent_notice": is_permanent_notice,
+                }
+            )
 
         # 구조 변경 대비 fallback: href 상세 링크 직접 수집
-        if not urls:
+        if not items:
             for link in soup.select("a[href*='default_notice_view.mir'][href*='sb_no=']"):
                 href = (link.get("href") or "").strip()
                 if href:
-                    urls.append(urljoin(page_url, href))
+                    items.append(
+                        {
+                            "url": urljoin(page_url, href),
+                            "is_permanent_notice": False,
+                        }
+                    )
 
-        return list(dict.fromkeys(urls))
+        deduped: list[dict] = []
+        seen_urls: set[str] = set()
+        for item in items:
+            url = str(item.get("url") or "").strip()
+            if not url:
+                continue
+
+            is_permanent_notice = bool(item.get("is_permanent_notice"))
+            if url in seen_urls:
+                # 동일 URL이 상시/일반 행에 중복 노출될 수 있어, 상시 플래그를 보존한다.
+                if is_permanent_notice:
+                    for existing in deduped:
+                        if existing["url"] == url:
+                            existing["is_permanent_notice"] = True
+                            break
+                continue
+
+            seen_urls.add(url)
+            deduped.append(
+                {
+                    "url": url,
+                    "is_permanent_notice": is_permanent_notice,
+                }
+            )
+
+        return deduped
+
+    def parse_post_urls(self, html: str, page_url: str) -> list[str]:
+        return [str(item["url"]) for item in self.parse_post_items(html, page_url)]
 
     def parse_post(self, html: str, detail_url: str) -> Post:
         soup = BeautifulSoup(html, "html.parser")

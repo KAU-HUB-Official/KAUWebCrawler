@@ -41,7 +41,7 @@ class KAUCollegeParser(BaseParser):
         self.category_raw = category_raw
         self.base_url = base_url
 
-    def parse_post_urls(self, html: str, page_url: str) -> list[str]:
+    def parse_post_items(self, html: str, page_url: str) -> list[dict]:
         data = self._load_json(html)
         if not data:
             return []
@@ -50,7 +50,7 @@ class KAUCollegeParser(BaseParser):
         if not isinstance(result_list, list):
             return []
 
-        urls: list[str] = []
+        items: list[dict] = []
         for item in result_list:
             if not isinstance(item, dict):
                 continue
@@ -68,9 +68,49 @@ class KAUCollegeParser(BaseParser):
                 "nttId": ntt_id,
                 "bbsFlag": "View",
             }
-            urls.append(f"{self.notice_page_url}?{urlencode(params)}")
+            items.append(
+                {
+                    "url": f"{self.notice_page_url}?{urlencode(params)}",
+                    "is_permanent_notice": self._is_permanent_notice(item),
+                }
+            )
 
-        return list(dict.fromkeys(urls))
+        deduped: list[dict] = []
+        seen_urls: set[str] = set()
+        for item in items:
+            url = str(item.get("url") or "").strip()
+            if not url or url in seen_urls:
+                continue
+            seen_urls.add(url)
+            deduped.append(
+                {
+                    "url": url,
+                    "is_permanent_notice": bool(item.get("is_permanent_notice")),
+                }
+            )
+
+        return deduped
+
+    def parse_post_urls(self, html: str, page_url: str) -> list[str]:
+        return [str(item["url"]) for item in self.parse_post_items(html, page_url)]
+
+    @staticmethod
+    def _is_permanent_notice(item: dict) -> bool:
+        # 대학 공통 API는 ntcYn/bnnrYn/공지기간 필드로 고정 공지를 표현한다.
+        ntc_flag = str(item.get("ntcYn") or "").strip().lower()
+        bnnr_flag = str(item.get("bnnrYn") or "").strip().lower()
+        if ntc_flag in {"y", "yes", "true", "1"}:
+            return True
+        if bnnr_flag in {"y", "yes", "true", "1"}:
+            return True
+
+        ntc_no_raw = str(item.get("ntcNo") or "").strip()
+        if ntc_no_raw.isdigit() and int(ntc_no_raw) > 0:
+            return True
+
+        ntce_start = str(item.get("ntceBgnde") or "").strip()
+        ntce_end = str(item.get("ntceEndde") or "").strip()
+        return bool(ntce_start or ntce_end)
 
     def parse_post(self, html: str, detail_url: str) -> Post:
         data = self._load_json(html) or {}
@@ -201,4 +241,3 @@ class KAUCollegeParser(BaseParser):
             deduped.append(item)
 
         return deduped
-

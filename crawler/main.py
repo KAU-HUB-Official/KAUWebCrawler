@@ -242,6 +242,95 @@ def normalize_title_for_dedup(title: str | None) -> str:
     return normalized
 
 
+def normalize_page_items(raw_items: list[dict], *, page: int) -> list[dict]:
+    normalized_items: list[dict] = []
+
+    for raw in raw_items:
+        detail_url = canonicalize_original_url(str(raw.get("url") or ""))
+        if not detail_url:
+            continue
+        normalized_items.append(
+            {
+                "url": detail_url,
+                "page": page,
+                "is_permanent_notice": bool(raw.get("is_permanent_notice")),
+            }
+        )
+
+    return normalized_items
+
+
+def select_new_items(page_items: list[dict], *, seen_urls: set[str]) -> list[dict]:
+    new_items: list[dict] = []
+
+    for item in page_items:
+        detail_url = str(item.get("url") or "")
+        if not detail_url or detail_url in seen_urls:
+            continue
+        seen_urls.add(detail_url)
+        new_items.append(item)
+
+    return new_items
+
+
+def dedup_and_limit_items(items: list[dict], *, limit: int) -> list[dict]:
+    deduped: list[dict] = []
+    seen_urls: set[str] = set()
+
+    for item in items:
+        detail_url = str(item.get("url") or "")
+        if not detail_url or detail_url in seen_urls:
+            continue
+        seen_urls.add(detail_url)
+        deduped.append(item)
+        if len(deduped) >= limit:
+            break
+
+    return deduped
+
+
+def dedup_items(items: list[dict]) -> list[dict]:
+    return dedup_and_limit_items(items, limit=max(1, len(items)))
+
+
+def evaluate_recent_policy(
+    *,
+    board_name: str,
+    detail_url: str,
+    source_page: int,
+    is_permanent_notice: bool,
+    published_at: str | None,
+) -> tuple[bool, bool]:
+    """
+    Returns:
+      - include_post: 결과 저장 여부
+      - skip_rest_general_in_page: 현재 페이지의 나머지 일반공지 상세 수집 생략 여부
+    """
+    if is_permanent_notice:
+        if is_recent_notice(published_at):
+            return True, False
+        logger.info(
+            "[%s] 상시공지로 간주하여 날짜 필터 예외 적용: published_at=%s, page=%s, url=%s",
+            board_name,
+            published_at,
+            source_page,
+            detail_url,
+        )
+        return True, False
+
+    if is_recent_notice(published_at):
+        return True, False
+
+    logger.info(
+        "[%s] 일반공지 1년 초과 또는 게시일 미확인으로 스킵 후 다음 페이지 이동: published_at=%s, page=%s, url=%s",
+        board_name,
+        published_at,
+        source_page,
+        detail_url,
+    )
+    return False, True
+
+
 def crawl_kau_official_board(
     board: dict,
     *,
@@ -254,7 +343,7 @@ def crawl_kau_official_board(
         source_type=board["source_type"],
     )
 
-    detail_urls: list[str] = []
+    detail_items: list[dict] = []
     seen_for_board: set[str] = set(known_urls)
     target_posts = max(1, int(board.get("max_posts", DEFAULT_POSTS_PER_BOARD)))
 
@@ -279,45 +368,56 @@ def crawl_kau_official_board(
             )
             continue
 
-        page_urls = [canonicalize_original_url(url) for url in parser.parse_post_urls(html, page_url)]
-        new_page_urls = [url for url in page_urls if url not in seen_for_board]
-        seen_for_board.update(new_page_urls)
+        page_items = normalize_page_items(parser.parse_post_items(html, page_url), page=page)
+        new_page_items = select_new_items(page_items, seen_urls=seen_for_board)
 
         logger.info(
             "[%s] 목록 파싱 완료: page=%s, collected=%s, new=%s",
             board["name"],
             page,
-            len(page_urls),
-            len(new_page_urls),
+            len(page_items),
+            len(new_page_items),
         )
-        detail_urls.extend(new_page_urls)
-
-        if len(detail_urls) >= target_posts:
-            logger.info("[%s] 목표 수집 건수 도달(%s), 목록 순회 종료", board["name"], target_posts)
-            break
+        detail_items.extend(new_page_items)
 
         # 목록이 최신순이라는 전제에서, 이미 알고 있는 URL만 나오면 이후 페이지도 중복일 가능성이 높다.
-        if not new_page_urls:
+        if not new_page_items:
             logger.info("[%s] 신규 URL 없음, page=%s에서 목록 순회 조기 종료", board["name"], page)
             break
 
-    detail_urls = list(dict.fromkeys(detail_urls))[:target_posts]
+    detail_items = dedup_items(detail_items)
     logger.info(
         "[%s] 중복 제거 후 상세 URL 수: %s (max_posts=%s)",
         board["name"],
-        len(detail_urls),
+        len(detail_items),
         target_posts,
     )
 
     posts: list[dict] = []
     failed_items: list[dict] = []
+    skip_general_page: int | None = None
 
-    for idx, detail_url in enumerate(detail_urls, start=1):
+    for idx, detail_item in enumerate(detail_items, start=1):
+        detail_url = str(detail_item["url"])
+        source_page = int(detail_item["page"])
+        is_permanent_notice = bool(detail_item["is_permanent_notice"])
+
+        if skip_general_page is not None and source_page != skip_general_page:
+            skip_general_page = None
+        if skip_general_page is not None and source_page == skip_general_page and not is_permanent_notice:
+            logger.info(
+                "[%s] page=%s의 일반공지 잔여 항목 스킵: %s",
+                board["name"],
+                source_page,
+                detail_url,
+            )
+            continue
+
         logger.info(
             "[%s] 상세 수집 중 (%s/%s): %s",
             board["name"],
             idx,
-            len(detail_urls),
+            len(detail_items),
             detail_url,
         )
 
@@ -346,12 +446,23 @@ def crawl_kau_official_board(
                 logger.warning("[%s] 필수 필드 누락으로 스킵: %s", board["name"], detail_url)
                 continue
 
-            if not is_recent_notice(post.published_at):
-                logger.info("[%s] 1년 초과 또는 게시일 미확인으로 스킵: published_at=%s, url=%s", board["name"], post.published_at, detail_url)
+            include_post, skip_rest_general_in_page = evaluate_recent_policy(
+                board_name=board["name"],
+                detail_url=detail_url,
+                source_page=source_page,
+                is_permanent_notice=is_permanent_notice,
+                published_at=post.published_at,
+            )
+            if not include_post:
+                if skip_rest_general_in_page:
+                    skip_general_page = source_page
                 continue
 
             posts.append(post.to_dict())
-            known_urls.add(detail_url)
+            known_urls.add(post.original_url)
+            if len(posts) >= target_posts:
+                logger.info("[%s] 목표 수집 건수 도달(%s), 상세 수집 종료", board["name"], target_posts)
+                break
         except Exception as exc:  # noqa: BLE001
             logger.exception("[%s] 상세 파싱 실패: %s", board["name"], detail_url)
             failed_items.append(
@@ -378,7 +489,7 @@ def crawl_kau_ctl_board(
         category_fallback=board.get("name"),
     )
 
-    detail_urls: list[str] = []
+    detail_items: list[dict] = []
     seen_for_board: set[str] = set(known_urls)
     target_posts = max(1, int(board.get("max_posts", DEFAULT_POSTS_PER_BOARD)))
 
@@ -395,44 +506,55 @@ def crawl_kau_ctl_board(
             )
             continue
 
-        page_urls = [canonicalize_original_url(url) for url in parser.parse_post_urls(html, page_url)]
-        new_page_urls = [url for url in page_urls if url not in seen_for_board]
-        seen_for_board.update(new_page_urls)
+        page_items = normalize_page_items(parser.parse_post_items(html, page_url), page=page)
+        new_page_items = select_new_items(page_items, seen_urls=seen_for_board)
 
         logger.info(
             "[%s] 목록 파싱 완료: page=%s, collected=%s, new=%s",
             board["name"],
             page,
-            len(page_urls),
-            len(new_page_urls),
+            len(page_items),
+            len(new_page_items),
         )
-        detail_urls.extend(new_page_urls)
+        detail_items.extend(new_page_items)
 
-        if len(detail_urls) >= target_posts:
-            logger.info("[%s] 목표 수집 건수 도달(%s), 목록 순회 종료", board["name"], target_posts)
-            break
-
-        if not new_page_urls:
+        if not new_page_items:
             logger.info("[%s] 신규 URL 없음, page=%s에서 목록 순회 조기 종료", board["name"], page)
             break
 
-    detail_urls = list(dict.fromkeys(detail_urls))[:target_posts]
+    detail_items = dedup_items(detail_items)
     logger.info(
         "[%s] 중복 제거 후 상세 URL 수: %s (max_posts=%s)",
         board["name"],
-        len(detail_urls),
+        len(detail_items),
         target_posts,
     )
 
     posts: list[dict] = []
     failed_items: list[dict] = []
+    skip_general_page: int | None = None
 
-    for idx, detail_url in enumerate(detail_urls, start=1):
+    for idx, detail_item in enumerate(detail_items, start=1):
+        detail_url = str(detail_item["url"])
+        source_page = int(detail_item["page"])
+        is_permanent_notice = bool(detail_item["is_permanent_notice"])
+
+        if skip_general_page is not None and source_page != skip_general_page:
+            skip_general_page = None
+        if skip_general_page is not None and source_page == skip_general_page and not is_permanent_notice:
+            logger.info(
+                "[%s] page=%s의 일반공지 잔여 항목 스킵: %s",
+                board["name"],
+                source_page,
+                detail_url,
+            )
+            continue
+
         logger.info(
             "[%s] 상세 수집 중 (%s/%s): %s",
             board["name"],
             idx,
-            len(detail_urls),
+            len(detail_items),
             detail_url,
         )
 
@@ -461,12 +583,23 @@ def crawl_kau_ctl_board(
                 logger.warning("[%s] 필수 필드 누락으로 스킵: %s", board["name"], detail_url)
                 continue
 
-            if not is_recent_notice(post.published_at):
-                logger.info("[%s] 1년 초과 또는 게시일 미확인으로 스킵: published_at=%s, url=%s", board["name"], post.published_at, detail_url)
+            include_post, skip_rest_general_in_page = evaluate_recent_policy(
+                board_name=board["name"],
+                detail_url=detail_url,
+                source_page=source_page,
+                is_permanent_notice=is_permanent_notice,
+                published_at=post.published_at,
+            )
+            if not include_post:
+                if skip_rest_general_in_page:
+                    skip_general_page = source_page
                 continue
 
             posts.append(post.to_dict())
             known_urls.add(post.original_url)
+            if len(posts) >= target_posts:
+                logger.info("[%s] 목표 수집 건수 도달(%s), 상세 수집 종료", board["name"], target_posts)
+                break
         except Exception as exc:  # noqa: BLE001
             logger.exception("[%s] 상세 파싱 실패: %s", board["name"], detail_url)
             failed_items.append(
@@ -493,7 +626,7 @@ def crawl_kau_library_board(
         category_fallback=board.get("name"),
     )
 
-    detail_urls: list[str] = []
+    detail_items: list[dict] = []
     seen_for_board: set[str] = set(known_urls)
     target_posts = max(1, int(board.get("max_posts", DEFAULT_POSTS_PER_BOARD)))
 
@@ -510,44 +643,55 @@ def crawl_kau_library_board(
             )
             continue
 
-        page_urls = [canonicalize_original_url(url) for url in parser.parse_post_urls(html, page_url)]
-        new_page_urls = [url for url in page_urls if url not in seen_for_board]
-        seen_for_board.update(new_page_urls)
+        page_items = normalize_page_items(parser.parse_post_items(html, page_url), page=page)
+        new_page_items = select_new_items(page_items, seen_urls=seen_for_board)
 
         logger.info(
             "[%s] 목록 파싱 완료: page=%s, collected=%s, new=%s",
             board["name"],
             page,
-            len(page_urls),
-            len(new_page_urls),
+            len(page_items),
+            len(new_page_items),
         )
-        detail_urls.extend(new_page_urls)
+        detail_items.extend(new_page_items)
 
-        if len(detail_urls) >= target_posts:
-            logger.info("[%s] 목표 수집 건수 도달(%s), 목록 순회 종료", board["name"], target_posts)
-            break
-
-        if not new_page_urls:
+        if not new_page_items:
             logger.info("[%s] 신규 URL 없음, page=%s에서 목록 순회 조기 종료", board["name"], page)
             break
 
-    detail_urls = list(dict.fromkeys(detail_urls))[:target_posts]
+    detail_items = dedup_items(detail_items)
     logger.info(
         "[%s] 중복 제거 후 상세 URL 수: %s (max_posts=%s)",
         board["name"],
-        len(detail_urls),
+        len(detail_items),
         target_posts,
     )
 
     posts: list[dict] = []
     failed_items: list[dict] = []
+    skip_general_page: int | None = None
 
-    for idx, detail_url in enumerate(detail_urls, start=1):
+    for idx, detail_item in enumerate(detail_items, start=1):
+        detail_url = str(detail_item["url"])
+        source_page = int(detail_item["page"])
+        is_permanent_notice = bool(detail_item["is_permanent_notice"])
+
+        if skip_general_page is not None and source_page != skip_general_page:
+            skip_general_page = None
+        if skip_general_page is not None and source_page == skip_general_page and not is_permanent_notice:
+            logger.info(
+                "[%s] page=%s의 일반공지 잔여 항목 스킵: %s",
+                board["name"],
+                source_page,
+                detail_url,
+            )
+            continue
+
         logger.info(
             "[%s] 상세 수집 중 (%s/%s): %s",
             board["name"],
             idx,
-            len(detail_urls),
+            len(detail_items),
             detail_url,
         )
 
@@ -576,12 +720,23 @@ def crawl_kau_library_board(
                 logger.warning("[%s] 필수 필드 누락으로 스킵: %s", board["name"], detail_url)
                 continue
 
-            if not is_recent_notice(post.published_at):
-                logger.info("[%s] 1년 초과 또는 게시일 미확인으로 스킵: published_at=%s, url=%s", board["name"], post.published_at, detail_url)
+            include_post, skip_rest_general_in_page = evaluate_recent_policy(
+                board_name=board["name"],
+                detail_url=detail_url,
+                source_page=source_page,
+                is_permanent_notice=is_permanent_notice,
+                published_at=post.published_at,
+            )
+            if not include_post:
+                if skip_rest_general_in_page:
+                    skip_general_page = source_page
                 continue
 
             posts.append(post.to_dict())
             known_urls.add(post.original_url)
+            if len(posts) >= target_posts:
+                logger.info("[%s] 목표 수집 건수 도달(%s), 상세 수집 종료", board["name"], target_posts)
+                break
         except Exception as exc:  # noqa: BLE001
             logger.exception("[%s] 상세 파싱 실패: %s", board["name"], detail_url)
             failed_items.append(
@@ -608,7 +763,7 @@ def crawl_kau_ftc_board(
         category_fallback=board.get("name"),
     )
 
-    detail_urls: list[str] = []
+    detail_items: list[dict] = []
     seen_for_board: set[str] = set(known_urls)
     target_posts = max(1, int(board.get("max_posts", DEFAULT_POSTS_PER_BOARD)))
 
@@ -625,44 +780,55 @@ def crawl_kau_ftc_board(
             )
             continue
 
-        page_urls = [canonicalize_original_url(url) for url in parser.parse_post_urls(html, page_url)]
-        new_page_urls = [url for url in page_urls if url not in seen_for_board]
-        seen_for_board.update(new_page_urls)
+        page_items = normalize_page_items(parser.parse_post_items(html, page_url), page=page)
+        new_page_items = select_new_items(page_items, seen_urls=seen_for_board)
 
         logger.info(
             "[%s] 목록 파싱 완료: page=%s, collected=%s, new=%s",
             board["name"],
             page,
-            len(page_urls),
-            len(new_page_urls),
+            len(page_items),
+            len(new_page_items),
         )
-        detail_urls.extend(new_page_urls)
+        detail_items.extend(new_page_items)
 
-        if len(detail_urls) >= target_posts:
-            logger.info("[%s] 목표 수집 건수 도달(%s), 목록 순회 종료", board["name"], target_posts)
-            break
-
-        if not new_page_urls:
+        if not new_page_items:
             logger.info("[%s] 신규 URL 없음, page=%s에서 목록 순회 조기 종료", board["name"], page)
             break
 
-    detail_urls = list(dict.fromkeys(detail_urls))[:target_posts]
+    detail_items = dedup_items(detail_items)
     logger.info(
         "[%s] 중복 제거 후 상세 URL 수: %s (max_posts=%s)",
         board["name"],
-        len(detail_urls),
+        len(detail_items),
         target_posts,
     )
 
     posts: list[dict] = []
     failed_items: list[dict] = []
+    skip_general_page: int | None = None
 
-    for idx, detail_url in enumerate(detail_urls, start=1):
+    for idx, detail_item in enumerate(detail_items, start=1):
+        detail_url = str(detail_item["url"])
+        source_page = int(detail_item["page"])
+        is_permanent_notice = bool(detail_item["is_permanent_notice"])
+
+        if skip_general_page is not None and source_page != skip_general_page:
+            skip_general_page = None
+        if skip_general_page is not None and source_page == skip_general_page and not is_permanent_notice:
+            logger.info(
+                "[%s] page=%s의 일반공지 잔여 항목 스킵: %s",
+                board["name"],
+                source_page,
+                detail_url,
+            )
+            continue
+
         logger.info(
             "[%s] 상세 수집 중 (%s/%s): %s",
             board["name"],
             idx,
-            len(detail_urls),
+            len(detail_items),
             detail_url,
         )
 
@@ -691,12 +857,23 @@ def crawl_kau_ftc_board(
                 logger.warning("[%s] 필수 필드 누락으로 스킵: %s", board["name"], detail_url)
                 continue
 
-            if not is_recent_notice(post.published_at):
-                logger.info("[%s] 1년 초과 또는 게시일 미확인으로 스킵: published_at=%s, url=%s", board["name"], post.published_at, detail_url)
+            include_post, skip_rest_general_in_page = evaluate_recent_policy(
+                board_name=board["name"],
+                detail_url=detail_url,
+                source_page=source_page,
+                is_permanent_notice=is_permanent_notice,
+                published_at=post.published_at,
+            )
+            if not include_post:
+                if skip_rest_general_in_page:
+                    skip_general_page = source_page
                 continue
 
             posts.append(post.to_dict())
             known_urls.add(post.original_url)
+            if len(posts) >= target_posts:
+                logger.info("[%s] 목표 수집 건수 도달(%s), 상세 수집 종료", board["name"], target_posts)
+                break
         except Exception as exc:  # noqa: BLE001
             logger.exception("[%s] 상세 파싱 실패: %s", board["name"], detail_url)
             failed_items.append(
@@ -724,7 +901,7 @@ def crawl_kau_amtc_board(
         bo_table=board["bo_table"],
     )
 
-    detail_urls: list[str] = []
+    detail_items: list[dict] = []
     seen_for_board: set[str] = set(known_urls)
     target_posts = max(1, int(board.get("max_posts", DEFAULT_POSTS_PER_BOARD)))
 
@@ -741,44 +918,55 @@ def crawl_kau_amtc_board(
             )
             continue
 
-        page_urls = [canonicalize_original_url(url) for url in parser.parse_post_urls(html, page_url)]
-        new_page_urls = [url for url in page_urls if url not in seen_for_board]
-        seen_for_board.update(new_page_urls)
+        page_items = normalize_page_items(parser.parse_post_items(html, page_url), page=page)
+        new_page_items = select_new_items(page_items, seen_urls=seen_for_board)
 
         logger.info(
             "[%s] 목록 파싱 완료: page=%s, collected=%s, new=%s",
             board["name"],
             page,
-            len(page_urls),
-            len(new_page_urls),
+            len(page_items),
+            len(new_page_items),
         )
-        detail_urls.extend(new_page_urls)
+        detail_items.extend(new_page_items)
 
-        if len(detail_urls) >= target_posts:
-            logger.info("[%s] 목표 수집 건수 도달(%s), 목록 순회 종료", board["name"], target_posts)
-            break
-
-        if not new_page_urls:
+        if not new_page_items:
             logger.info("[%s] 신규 URL 없음, page=%s에서 목록 순회 조기 종료", board["name"], page)
             break
 
-    detail_urls = list(dict.fromkeys(detail_urls))[:target_posts]
+    detail_items = dedup_items(detail_items)
     logger.info(
         "[%s] 중복 제거 후 상세 URL 수: %s (max_posts=%s)",
         board["name"],
-        len(detail_urls),
+        len(detail_items),
         target_posts,
     )
 
     posts: list[dict] = []
     failed_items: list[dict] = []
+    skip_general_page: int | None = None
 
-    for idx, detail_url in enumerate(detail_urls, start=1):
+    for idx, detail_item in enumerate(detail_items, start=1):
+        detail_url = str(detail_item["url"])
+        source_page = int(detail_item["page"])
+        is_permanent_notice = bool(detail_item["is_permanent_notice"])
+
+        if skip_general_page is not None and source_page != skip_general_page:
+            skip_general_page = None
+        if skip_general_page is not None and source_page == skip_general_page and not is_permanent_notice:
+            logger.info(
+                "[%s] page=%s의 일반공지 잔여 항목 스킵: %s",
+                board["name"],
+                source_page,
+                detail_url,
+            )
+            continue
+
         logger.info(
             "[%s] 상세 수집 중 (%s/%s): %s",
             board["name"],
             idx,
-            len(detail_urls),
+            len(detail_items),
             detail_url,
         )
 
@@ -807,12 +995,23 @@ def crawl_kau_amtc_board(
                 logger.warning("[%s] 필수 필드 누락으로 스킵: %s", board["name"], detail_url)
                 continue
 
-            if not is_recent_notice(post.published_at):
-                logger.info("[%s] 1년 초과 또는 게시일 미확인으로 스킵: published_at=%s, url=%s", board["name"], post.published_at, detail_url)
+            include_post, skip_rest_general_in_page = evaluate_recent_policy(
+                board_name=board["name"],
+                detail_url=detail_url,
+                source_page=source_page,
+                is_permanent_notice=is_permanent_notice,
+                published_at=post.published_at,
+            )
+            if not include_post:
+                if skip_rest_general_in_page:
+                    skip_general_page = source_page
                 continue
 
             posts.append(post.to_dict())
             known_urls.add(post.original_url)
+            if len(posts) >= target_posts:
+                logger.info("[%s] 목표 수집 건수 도달(%s), 상세 수집 종료", board["name"], target_posts)
+                break
         except Exception as exc:  # noqa: BLE001
             logger.exception("[%s] 상세 파싱 실패: %s", board["name"], detail_url)
             failed_items.append(
@@ -840,7 +1039,7 @@ def crawl_kau_career_board(
 
     posts: list[dict] = []
     failed_items: list[dict] = []
-    detail_urls: list[str] = []
+    detail_items: list[dict] = []
     seen_for_board: set[str] = set(known_urls)
     target_posts = max(1, int(board.get("max_posts", DEFAULT_POSTS_PER_BOARD)))
     effective_max_pages = max(max_pages, int(board.get("min_pages", 1)))
@@ -872,41 +1071,52 @@ def crawl_kau_career_board(
             )
             continue
 
-        page_urls = [canonicalize_original_url(url) for url in parser.parse_post_urls(html, page_url)]
-        new_page_urls = [url for url in page_urls if url not in seen_for_board]
-        seen_for_board.update(new_page_urls)
+        page_items = normalize_page_items(parser.parse_post_items(html, page_url), page=page)
+        new_page_items = select_new_items(page_items, seen_urls=seen_for_board)
 
         logger.info(
             "[%s] 목록 파싱 완료: page=%s, collected=%s, new=%s",
             board["name"],
             page,
-            len(page_urls),
-            len(new_page_urls),
+            len(page_items),
+            len(new_page_items),
         )
-        detail_urls.extend(new_page_urls)
+        detail_items.extend(new_page_items)
 
-        if len(detail_urls) >= target_posts:
-            logger.info("[%s] 목표 수집 건수 도달(%s), 목록 순회 종료", board["name"], target_posts)
-            break
-
-        if not new_page_urls:
+        if not new_page_items:
             logger.info("[%s] 신규 URL 없음, page=%s에서 목록 순회 조기 종료", board["name"], page)
             break
 
-    detail_urls = list(dict.fromkeys(detail_urls))[:target_posts]
+    detail_items = dedup_items(detail_items)
     logger.info(
         "[%s] 중복 제거 후 상세 URL 수: %s (max_posts=%s)",
         board["name"],
-        len(detail_urls),
+        len(detail_items),
         target_posts,
     )
+    skip_general_page: int | None = None
 
-    for idx, detail_url in enumerate(detail_urls, start=1):
+    for idx, detail_item in enumerate(detail_items, start=1):
+        detail_url = str(detail_item["url"])
+        source_page = int(detail_item["page"])
+        is_permanent_notice = bool(detail_item["is_permanent_notice"])
+
+        if skip_general_page is not None and source_page != skip_general_page:
+            skip_general_page = None
+        if skip_general_page is not None and source_page == skip_general_page and not is_permanent_notice:
+            logger.info(
+                "[%s] page=%s의 일반공지 잔여 항목 스킵: %s",
+                board["name"],
+                source_page,
+                detail_url,
+            )
+            continue
+
         logger.info(
             "[%s] 상세 수집 중 (%s/%s): %s",
             board["name"],
             idx,
-            len(detail_urls),
+            len(detail_items),
             detail_url,
         )
 
@@ -946,12 +1156,23 @@ def crawl_kau_career_board(
                 logger.warning("[%s] 필수 필드 누락으로 스킵: %s", board["name"], detail_url)
                 continue
 
-            if not is_recent_notice(post.published_at):
-                logger.info("[%s] 1년 초과 또는 게시일 미확인으로 스킵: published_at=%s, url=%s", board["name"], post.published_at, detail_url)
+            include_post, skip_rest_general_in_page = evaluate_recent_policy(
+                board_name=board["name"],
+                detail_url=detail_url,
+                source_page=source_page,
+                is_permanent_notice=is_permanent_notice,
+                published_at=post.published_at,
+            )
+            if not include_post:
+                if skip_rest_general_in_page:
+                    skip_general_page = source_page
                 continue
 
             posts.append(post.to_dict())
-            known_urls.add(detail_url)
+            known_urls.add(post.original_url)
+            if len(posts) >= target_posts:
+                logger.info("[%s] 목표 수집 건수 도달(%s), 상세 수집 종료", board["name"], target_posts)
+                break
         except Exception as exc:  # noqa: BLE001
             logger.exception("[%s] 상세 파싱 실패: %s", board["name"], detail_url)
             failed_items.append(
@@ -984,7 +1205,7 @@ def crawl_kau_college_board(
 
     posts: list[dict] = []
     failed_items: list[dict] = []
-    detail_urls: list[str] = []
+    detail_items: list[dict] = []
     seen_for_board: set[str] = set(known_urls)
     target_posts = max(1, int(board.get("max_posts", DEFAULT_POSTS_PER_BOARD)))
 
@@ -1019,44 +1240,52 @@ def crawl_kau_college_board(
             )
             continue
 
-        page_urls = [
-            canonicalize_original_url(url)
-            for url in parser.parse_post_urls(response_text, page_url)
-        ]
-        new_page_urls = [url for url in page_urls if url not in seen_for_board]
-        seen_for_board.update(new_page_urls)
+        page_items = normalize_page_items(parser.parse_post_items(response_text, page_url), page=page)
+        new_page_items = select_new_items(page_items, seen_urls=seen_for_board)
 
         logger.info(
             "[%s] 목록 파싱 완료: page=%s, collected=%s, new=%s",
             board["name"],
             page,
-            len(page_urls),
-            len(new_page_urls),
+            len(page_items),
+            len(new_page_items),
         )
-        detail_urls.extend(new_page_urls)
+        detail_items.extend(new_page_items)
 
-        if len(detail_urls) >= target_posts:
-            logger.info("[%s] 목표 수집 건수 도달(%s), 목록 순회 종료", board["name"], target_posts)
-            break
-
-        if not new_page_urls:
+        if not new_page_items:
             logger.info("[%s] 신규 URL 없음, page=%s에서 목록 순회 조기 종료", board["name"], page)
             break
 
-    detail_urls = list(dict.fromkeys(detail_urls))[:target_posts]
+    detail_items = dedup_items(detail_items)
     logger.info(
         "[%s] 중복 제거 후 상세 URL 수: %s (max_posts=%s)",
         board["name"],
-        len(detail_urls),
+        len(detail_items),
         target_posts,
     )
+    skip_general_page: int | None = None
 
-    for idx, detail_url in enumerate(detail_urls, start=1):
+    for idx, detail_item in enumerate(detail_items, start=1):
+        detail_url = str(detail_item["url"])
+        source_page = int(detail_item["page"])
+        is_permanent_notice = bool(detail_item["is_permanent_notice"])
+
+        if skip_general_page is not None and source_page != skip_general_page:
+            skip_general_page = None
+        if skip_general_page is not None and source_page == skip_general_page and not is_permanent_notice:
+            logger.info(
+                "[%s] page=%s의 일반공지 잔여 항목 스킵: %s",
+                board["name"],
+                source_page,
+                detail_url,
+            )
+            continue
+
         logger.info(
             "[%s] 상세 수집 중 (%s/%s): %s",
             board["name"],
             idx,
-            len(detail_urls),
+            len(detail_items),
             detail_url,
         )
 
@@ -1106,12 +1335,23 @@ def crawl_kau_college_board(
                 logger.warning("[%s] 필수 필드 누락으로 스킵: %s", board["name"], detail_url)
                 continue
 
-            if not is_recent_notice(post.published_at):
-                logger.info("[%s] 1년 초과 또는 게시일 미확인으로 스킵: published_at=%s, url=%s", board["name"], post.published_at, detail_url)
+            include_post, skip_rest_general_in_page = evaluate_recent_policy(
+                board_name=board["name"],
+                detail_url=detail_url,
+                source_page=source_page,
+                is_permanent_notice=is_permanent_notice,
+                published_at=post.published_at,
+            )
+            if not include_post:
+                if skip_rest_general_in_page:
+                    skip_general_page = source_page
                 continue
 
             posts.append(post.to_dict())
             known_urls.add(post.original_url)
+            if len(posts) >= target_posts:
+                logger.info("[%s] 목표 수집 건수 도달(%s), 상세 수집 종료", board["name"], target_posts)
+                break
         except Exception as exc:  # noqa: BLE001
             logger.exception("[%s] 상세 파싱 실패: %s", board["name"], detail_url)
             failed_items.append(
@@ -1138,7 +1378,7 @@ def crawl_kau_research_board(
         category_fallback=board.get("name"),
     )
 
-    detail_urls: list[str] = []
+    detail_items: list[dict] = []
     seen_for_board: set[str] = set(known_urls)
     target_posts = max(1, int(board.get("max_posts", DEFAULT_POSTS_PER_BOARD)))
 
@@ -1163,44 +1403,55 @@ def crawl_kau_research_board(
             )
             continue
 
-        page_urls = [canonicalize_original_url(url) for url in parser.parse_post_urls(html, page_url)]
-        new_page_urls = [url for url in page_urls if url not in seen_for_board]
-        seen_for_board.update(new_page_urls)
+        page_items = normalize_page_items(parser.parse_post_items(html, page_url), page=page)
+        new_page_items = select_new_items(page_items, seen_urls=seen_for_board)
 
         logger.info(
             "[%s] 목록 파싱 완료: page=%s, collected=%s, new=%s",
             board["name"],
             page,
-            len(page_urls),
-            len(new_page_urls),
+            len(page_items),
+            len(new_page_items),
         )
-        detail_urls.extend(new_page_urls)
+        detail_items.extend(new_page_items)
 
-        if len(detail_urls) >= target_posts:
-            logger.info("[%s] 목표 수집 건수 도달(%s), 목록 순회 종료", board["name"], target_posts)
-            break
-
-        if not new_page_urls:
+        if not new_page_items:
             logger.info("[%s] 신규 URL 없음, page=%s에서 목록 순회 조기 종료", board["name"], page)
             break
 
-    detail_urls = list(dict.fromkeys(detail_urls))[:target_posts]
+    detail_items = dedup_items(detail_items)
     logger.info(
         "[%s] 중복 제거 후 상세 URL 수: %s (max_posts=%s)",
         board["name"],
-        len(detail_urls),
+        len(detail_items),
         target_posts,
     )
 
     posts: list[dict] = []
     failed_items: list[dict] = []
+    skip_general_page: int | None = None
 
-    for idx, detail_url in enumerate(detail_urls, start=1):
+    for idx, detail_item in enumerate(detail_items, start=1):
+        detail_url = str(detail_item["url"])
+        source_page = int(detail_item["page"])
+        is_permanent_notice = bool(detail_item["is_permanent_notice"])
+
+        if skip_general_page is not None and source_page != skip_general_page:
+            skip_general_page = None
+        if skip_general_page is not None and source_page == skip_general_page and not is_permanent_notice:
+            logger.info(
+                "[%s] page=%s의 일반공지 잔여 항목 스킵: %s",
+                board["name"],
+                source_page,
+                detail_url,
+            )
+            continue
+
         logger.info(
             "[%s] 상세 수집 중 (%s/%s): %s",
             board["name"],
             idx,
-            len(detail_urls),
+            len(detail_items),
             detail_url,
         )
 
@@ -1229,12 +1480,23 @@ def crawl_kau_research_board(
                 logger.warning("[%s] 필수 필드 누락으로 스킵: %s", board["name"], detail_url)
                 continue
 
-            if not is_recent_notice(post.published_at):
-                logger.info("[%s] 1년 초과 또는 게시일 미확인으로 스킵: published_at=%s, url=%s", board["name"], post.published_at, detail_url)
+            include_post, skip_rest_general_in_page = evaluate_recent_policy(
+                board_name=board["name"],
+                detail_url=detail_url,
+                source_page=source_page,
+                is_permanent_notice=is_permanent_notice,
+                published_at=post.published_at,
+            )
+            if not include_post:
+                if skip_rest_general_in_page:
+                    skip_general_page = source_page
                 continue
 
             posts.append(post.to_dict())
             known_urls.add(post.original_url)
+            if len(posts) >= target_posts:
+                logger.info("[%s] 목표 수집 건수 도달(%s), 상세 수집 종료", board["name"], target_posts)
+                break
         except Exception as exc:  # noqa: BLE001
             logger.exception("[%s] 상세 파싱 실패: %s", board["name"], detail_url)
             failed_items.append(
@@ -1262,7 +1524,7 @@ def crawl_kau_admission_board(
         category_fallback=board.get("name"),
     )
 
-    detail_urls: list[str] = []
+    detail_items: list[dict] = []
     seen_for_board: set[str] = set(known_urls)
     target_posts = max(1, int(board.get("max_posts", DEFAULT_POSTS_PER_BOARD)))
 
@@ -1289,44 +1551,55 @@ def crawl_kau_admission_board(
             )
             continue
 
-        page_urls = [canonicalize_original_url(url) for url in parser.parse_post_urls(html, page_url)]
-        new_page_urls = [url for url in page_urls if url not in seen_for_board]
-        seen_for_board.update(new_page_urls)
+        page_items = normalize_page_items(parser.parse_post_items(html, page_url), page=page)
+        new_page_items = select_new_items(page_items, seen_urls=seen_for_board)
 
         logger.info(
             "[%s] 목록 파싱 완료: page=%s, collected=%s, new=%s",
             board["name"],
             page,
-            len(page_urls),
-            len(new_page_urls),
+            len(page_items),
+            len(new_page_items),
         )
-        detail_urls.extend(new_page_urls)
+        detail_items.extend(new_page_items)
 
-        if len(detail_urls) >= target_posts:
-            logger.info("[%s] 목표 수집 건수 도달(%s), 목록 순회 종료", board["name"], target_posts)
-            break
-
-        if not new_page_urls:
+        if not new_page_items:
             logger.info("[%s] 신규 URL 없음, page=%s에서 목록 순회 조기 종료", board["name"], page)
             break
 
-    detail_urls = list(dict.fromkeys(detail_urls))[:target_posts]
+    detail_items = dedup_items(detail_items)
     logger.info(
         "[%s] 중복 제거 후 상세 URL 수: %s (max_posts=%s)",
         board["name"],
-        len(detail_urls),
+        len(detail_items),
         target_posts,
     )
 
     posts: list[dict] = []
     failed_items: list[dict] = []
+    skip_general_page: int | None = None
 
-    for idx, detail_url in enumerate(detail_urls, start=1):
+    for idx, detail_item in enumerate(detail_items, start=1):
+        detail_url = str(detail_item["url"])
+        source_page = int(detail_item["page"])
+        is_permanent_notice = bool(detail_item["is_permanent_notice"])
+
+        if skip_general_page is not None and source_page != skip_general_page:
+            skip_general_page = None
+        if skip_general_page is not None and source_page == skip_general_page and not is_permanent_notice:
+            logger.info(
+                "[%s] page=%s의 일반공지 잔여 항목 스킵: %s",
+                board["name"],
+                source_page,
+                detail_url,
+            )
+            continue
+
         logger.info(
             "[%s] 상세 수집 중 (%s/%s): %s",
             board["name"],
             idx,
-            len(detail_urls),
+            len(detail_items),
             detail_url,
         )
 
@@ -1355,12 +1628,23 @@ def crawl_kau_admission_board(
                 logger.warning("[%s] 필수 필드 누락으로 스킵: %s", board["name"], detail_url)
                 continue
 
-            if not is_recent_notice(post.published_at):
-                logger.info("[%s] 1년 초과 또는 게시일 미확인으로 스킵: published_at=%s, url=%s", board["name"], post.published_at, detail_url)
+            include_post, skip_rest_general_in_page = evaluate_recent_policy(
+                board_name=board["name"],
+                detail_url=detail_url,
+                source_page=source_page,
+                is_permanent_notice=is_permanent_notice,
+                published_at=post.published_at,
+            )
+            if not include_post:
+                if skip_rest_general_in_page:
+                    skip_general_page = source_page
                 continue
 
             posts.append(post.to_dict())
             known_urls.add(post.original_url)
+            if len(posts) >= target_posts:
+                logger.info("[%s] 목표 수집 건수 도달(%s), 상세 수집 종료", board["name"], target_posts)
+                break
         except Exception as exc:  # noqa: BLE001
             logger.exception("[%s] 상세 파싱 실패: %s", board["name"], detail_url)
             failed_items.append(

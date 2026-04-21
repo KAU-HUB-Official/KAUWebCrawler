@@ -32,17 +32,21 @@ class KAUAdmissionParser(BaseParser):
         self.default_board_id = default_board_id
         self.category_fallback = category_fallback
 
-    def parse_post_urls(self, html: str, page_url: str) -> list[str]:
+    def parse_post_items(self, html: str, page_url: str) -> list[dict]:
         soup = BeautifulSoup(html, "html.parser")
 
         board_id = self._extract_board_id(soup)
         current_page = self._extract_current_page(soup)
         detail_base = urljoin(page_url, "noticeView.asp")
 
-        urls: list[str] = []
+        items: list[dict] = []
 
         # 목록 링크는 href 대신 onclick="viewBoardProcess('6119')" 구조를 사용한다.
-        for link in soup.select("section.board_list .bl table tbody td.tit a[onclick]"):
+        for row in soup.select("section.board_list .bl table tbody tr"):
+            link = row.select_one("td.tit a[onclick]")
+            if not link:
+                continue
+
             onclick = (link.get("onclick") or "").strip()
             match = re.search(r"viewBoardProcess\(['\"]?(\d+)['\"]?\)", onclick)
             if not match:
@@ -54,10 +58,28 @@ class KAUAdmissionParser(BaseParser):
                 "p_board_idx": board_idx,
                 "page": current_page,
             }
-            urls.append(f"{detail_base}?{urlencode(params)}")
+            is_permanent_notice = row.select_one("td.no._important, span._important_txt") is not None
+            if not is_permanent_notice:
+                number_cell = row.select_one("td.no")
+                marker_text = self.normalize_whitespace(number_cell.get_text(" ", strip=True) if number_cell else "")
+                is_permanent_notice = bool(
+                    marker_text
+                    and (
+                        ("공지" in marker_text)
+                        or ("notice" in marker_text.lower())
+                        or (not marker_text.isdigit())
+                    )
+                )
+
+            items.append(
+                {
+                    "url": f"{detail_base}?{urlencode(params)}",
+                    "is_permanent_notice": is_permanent_notice,
+                }
+            )
 
         # 구조 변경 시 직접 href 상세 링크를 fallback으로 허용한다.
-        if not urls:
+        if not items:
             for link in soup.select("section.board_list .bl table tbody td.tit a[href]"):
                 href = (link.get("href") or "").strip()
                 if not href:
@@ -65,9 +87,31 @@ class KAUAdmissionParser(BaseParser):
                 absolute_url = urljoin(page_url, href)
                 if "noticeView.asp" not in absolute_url:
                     continue
-                urls.append(absolute_url)
+                items.append(
+                    {
+                        "url": absolute_url,
+                        "is_permanent_notice": False,
+                    }
+                )
 
-        return list(dict.fromkeys(urls))
+        deduped: list[dict] = []
+        seen_urls: set[str] = set()
+        for item in items:
+            url = str(item.get("url") or "").strip()
+            if not url or url in seen_urls:
+                continue
+            seen_urls.add(url)
+            deduped.append(
+                {
+                    "url": url,
+                    "is_permanent_notice": bool(item.get("is_permanent_notice")),
+                }
+            )
+
+        return deduped
+
+    def parse_post_urls(self, html: str, page_url: str) -> list[str]:
+        return [str(item["url"]) for item in self.parse_post_items(html, page_url)]
 
     def parse_post(self, html: str, detail_url: str) -> Post:
         soup = BeautifulSoup(html, "html.parser")

@@ -28,28 +28,67 @@ class KAUCareerParser(BaseParser):
         self.source_name = source_name
         self.source_type = source_type
 
-    def parse_post_urls(self, html: str, page_url: str) -> list[str]:
+    def parse_post_items(self, html: str, page_url: str) -> list[dict]:
         soup = BeautifulSoup(html, "html.parser")
 
-        urls: list[str] = []
+        items: list[dict] = []
 
-        # 목록은 BOARDUNIV 모듈의 table 구조 내 span.title > a 링크를 사용한다.
-        for link in soup.select("ul[data-role='table'] li.tbody span.title > a[href]"):
+        # 목록은 ul[data-role='table'] > li.tbody 단위이며 li.tbody.notice가 상시 공지다.
+        for row in soup.select("ul[data-role='table'] li.tbody"):
+            link = row.select_one("span.title > a[href]")
+            if not link:
+                continue
+
             href = (link.get("href") or "").strip()
             if not href:
                 continue
             absolute_url = urljoin(page_url, href)
             if "/view/" not in absolute_url:
                 continue
-            urls.append(absolute_url)
 
-        if not urls:
+            classes = set(row.get("class") or [])
+            is_permanent_notice = "notice" in classes
+            if not is_permanent_notice:
+                loopnum = row.select_one("span.loopnum")
+                marker_text = self.normalize_whitespace(loopnum.get_text(" ", strip=True) if loopnum else "")
+                is_permanent_notice = "공지" in marker_text or "notice" in marker_text.lower()
+
+            items.append(
+                {
+                    "url": absolute_url,
+                    "is_permanent_notice": is_permanent_notice,
+                }
+            )
+
+        if not items:
             for link in soup.select("a[href*='/view/'][href*='/ko/community/notice']"):
                 href = (link.get("href") or "").strip()
                 if href:
-                    urls.append(urljoin(page_url, href))
+                    items.append(
+                        {
+                            "url": urljoin(page_url, href),
+                            "is_permanent_notice": False,
+                        }
+                    )
 
-        return list(dict.fromkeys(urls))
+        deduped: list[dict] = []
+        seen_urls: set[str] = set()
+        for item in items:
+            url = str(item.get("url") or "").strip()
+            if not url or url in seen_urls:
+                continue
+            seen_urls.add(url)
+            deduped.append(
+                {
+                    "url": url,
+                    "is_permanent_notice": bool(item.get("is_permanent_notice")),
+                }
+            )
+
+        return deduped
+
+    def parse_post_urls(self, html: str, page_url: str) -> list[str]:
+        return [str(item["url"]) for item in self.parse_post_items(html, page_url)]
 
     def parse_post(self, html: str, detail_url: str) -> Post:
         soup = BeautifulSoup(html, "html.parser")
