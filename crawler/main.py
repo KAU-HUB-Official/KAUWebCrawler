@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from urllib.parse import parse_qs, parse_qsl, urlencode, urlparse, urlunparse
 
@@ -24,6 +26,7 @@ from config import (
     FTC_NOTICE_LIST_URL,
     NOTICE_BOARDS,
     OUTPUT_FILE,
+    RECENT_NOTICE_DAYS,
 )
 from parsers.kau_career_parser import KAUCareerParser
 from parsers.kau_college_parser import KAUCollegeParser
@@ -205,6 +208,40 @@ def load_existing_posts(output_path: Path) -> list[dict]:
     return normalized_items
 
 
+def parse_published_date(published_at: str | None) -> date | None:
+    if not published_at:
+        return None
+
+    # 파서별 포맷(YYYY-MM-DD, YYYY.MM.DD, YYYY-MM-DD HH:MM 등)에서 날짜만 추출한다.
+    match = re.search(r"(\d{4})[./-](\d{1,2})[./-](\d{1,2})", str(published_at))
+    if not match:
+        return None
+
+    year, month, day = (int(value) for value in match.groups())
+    try:
+        return date(year, month, day)
+    except ValueError:
+        return None
+
+
+def is_recent_notice(published_at: str | None, *, lookback_days: int = RECENT_NOTICE_DAYS) -> bool:
+    published_date = parse_published_date(published_at)
+    if not published_date:
+        return False
+
+    cutoff_date = datetime.now().date() - timedelta(days=lookback_days)
+    return published_date >= cutoff_date
+
+
+def normalize_title_for_dedup(title: str | None) -> str:
+    if not title:
+        return ""
+
+    # 사이트별 공백/대소문자 차이를 줄여 제목 기반 중복 판단 키를 만든다.
+    normalized = re.sub(r"\s+", " ", str(title)).strip().lower()
+    return normalized
+
+
 def crawl_kau_official_board(
     board: dict,
     *,
@@ -307,6 +344,10 @@ def crawl_kau_official_board(
                     }
                 )
                 logger.warning("[%s] 필수 필드 누락으로 스킵: %s", board["name"], detail_url)
+                continue
+
+            if not is_recent_notice(post.published_at):
+                logger.info("[%s] 1년 초과 또는 게시일 미확인으로 스킵: published_at=%s, url=%s", board["name"], post.published_at, detail_url)
                 continue
 
             posts.append(post.to_dict())
@@ -420,6 +461,10 @@ def crawl_kau_ctl_board(
                 logger.warning("[%s] 필수 필드 누락으로 스킵: %s", board["name"], detail_url)
                 continue
 
+            if not is_recent_notice(post.published_at):
+                logger.info("[%s] 1년 초과 또는 게시일 미확인으로 스킵: published_at=%s, url=%s", board["name"], post.published_at, detail_url)
+                continue
+
             posts.append(post.to_dict())
             known_urls.add(post.original_url)
         except Exception as exc:  # noqa: BLE001
@@ -529,6 +574,10 @@ def crawl_kau_library_board(
                     }
                 )
                 logger.warning("[%s] 필수 필드 누락으로 스킵: %s", board["name"], detail_url)
+                continue
+
+            if not is_recent_notice(post.published_at):
+                logger.info("[%s] 1년 초과 또는 게시일 미확인으로 스킵: published_at=%s, url=%s", board["name"], post.published_at, detail_url)
                 continue
 
             posts.append(post.to_dict())
@@ -642,6 +691,10 @@ def crawl_kau_ftc_board(
                 logger.warning("[%s] 필수 필드 누락으로 스킵: %s", board["name"], detail_url)
                 continue
 
+            if not is_recent_notice(post.published_at):
+                logger.info("[%s] 1년 초과 또는 게시일 미확인으로 스킵: published_at=%s, url=%s", board["name"], post.published_at, detail_url)
+                continue
+
             posts.append(post.to_dict())
             known_urls.add(post.original_url)
         except Exception as exc:  # noqa: BLE001
@@ -752,6 +805,10 @@ def crawl_kau_amtc_board(
                     }
                 )
                 logger.warning("[%s] 필수 필드 누락으로 스킵: %s", board["name"], detail_url)
+                continue
+
+            if not is_recent_notice(post.published_at):
+                logger.info("[%s] 1년 초과 또는 게시일 미확인으로 스킵: published_at=%s, url=%s", board["name"], post.published_at, detail_url)
                 continue
 
             posts.append(post.to_dict())
@@ -887,6 +944,10 @@ def crawl_kau_career_board(
                     }
                 )
                 logger.warning("[%s] 필수 필드 누락으로 스킵: %s", board["name"], detail_url)
+                continue
+
+            if not is_recent_notice(post.published_at):
+                logger.info("[%s] 1년 초과 또는 게시일 미확인으로 스킵: published_at=%s, url=%s", board["name"], post.published_at, detail_url)
                 continue
 
             posts.append(post.to_dict())
@@ -1045,6 +1106,10 @@ def crawl_kau_college_board(
                 logger.warning("[%s] 필수 필드 누락으로 스킵: %s", board["name"], detail_url)
                 continue
 
+            if not is_recent_notice(post.published_at):
+                logger.info("[%s] 1년 초과 또는 게시일 미확인으로 스킵: published_at=%s, url=%s", board["name"], post.published_at, detail_url)
+                continue
+
             posts.append(post.to_dict())
             known_urls.add(post.original_url)
         except Exception as exc:  # noqa: BLE001
@@ -1162,6 +1227,10 @@ def crawl_kau_research_board(
                     }
                 )
                 logger.warning("[%s] 필수 필드 누락으로 스킵: %s", board["name"], detail_url)
+                continue
+
+            if not is_recent_notice(post.published_at):
+                logger.info("[%s] 1년 초과 또는 게시일 미확인으로 스킵: published_at=%s, url=%s", board["name"], post.published_at, detail_url)
                 continue
 
             posts.append(post.to_dict())
@@ -1286,6 +1355,10 @@ def crawl_kau_admission_board(
                 logger.warning("[%s] 필수 필드 누락으로 스킵: %s", board["name"], detail_url)
                 continue
 
+            if not is_recent_notice(post.published_at):
+                logger.info("[%s] 1년 초과 또는 게시일 미확인으로 스킵: published_at=%s, url=%s", board["name"], post.published_at, detail_url)
+                continue
+
             posts.append(post.to_dict())
             known_urls.add(post.original_url)
         except Exception as exc:  # noqa: BLE001
@@ -1402,7 +1475,7 @@ def crawl_all_notices(max_pages: int, output_path: Path) -> tuple[list[dict], li
         all_new_posts.extend(posts)
         all_failed_items.extend(failed_items)
 
-    dedup_posts: list[dict] = []
+    url_dedup_posts: list[dict] = []
     seen_urls: set[str] = set()
 
     # 기존 보유 데이터를 먼저 유지하고, 신규 데이터를 뒤에 병합한다.
@@ -1412,14 +1485,35 @@ def crawl_all_notices(max_pages: int, output_path: Path) -> tuple[list[dict], li
             continue
         post["original_url"] = original_url
         seen_urls.add(original_url)
+        url_dedup_posts.append(post)
+
+    dedup_posts: list[dict] = []
+    seen_titles: set[str] = set()
+    title_dedup_removed = 0
+
+    # 제목이 동일한 공지는 서로 다른 홈페이지여도 같은 공지로 간주해 1건만 유지한다.
+    for post in url_dedup_posts:
+        title_key = normalize_title_for_dedup(str(post.get("title") or ""))
+        if title_key and title_key in seen_titles:
+            title_dedup_removed += 1
+            logger.info(
+                "제목 중복으로 스킵: title=%s, url=%s",
+                post.get("title"),
+                post.get("original_url"),
+            )
+            continue
+        if title_key:
+            seen_titles.add(title_key)
         dedup_posts.append(post)
 
     save_json(dedup_posts, output_path)
     logger.info(
-        "결과 저장 완료: %s (total=%s, newly_added=%s)",
+        "결과 저장 완료: %s (total=%s, newly_added=%s, url_dedup_removed=%s, title_dedup_removed=%s)",
         output_path,
         len(dedup_posts),
         len(all_new_posts),
+        len(existing_posts) + len(all_new_posts) - len(url_dedup_posts),
+        title_dedup_removed,
     )
 
     if all_failed_items:

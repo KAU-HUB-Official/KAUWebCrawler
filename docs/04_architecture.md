@@ -21,6 +21,7 @@
 - URL 정규화: `page`, `searchkey` 등 비본질 쿼리 제거 후 canonical URL로 비교
 - 1차: 게시판 내부 상세 URL 중복 제거
 - 2차: 기존 보유 + 신규 결과 병합 시 `original_url` 중복 제거
+- 3차: `title` 정규화(공백 정리 + 소문자화) 기준 중복 제거
 
 ## 요청 정책
 - 공통 세션(`requests.Session`) 사용
