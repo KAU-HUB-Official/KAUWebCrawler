@@ -10,6 +10,7 @@
 - `parse_error:<Exception>`: 파싱 중 예외 발생
 - `required_field_empty`: title/content 필수값 비어 있음
 - `robots_disallowed`: robots 정책으로 요청 차단
+- `missing_ntt_id`: `college.kau.ac.kr` 상세 URL에서 `nttId` 식별자 누락
 
 ## 점검 루틴
 1. `crawler.log`에서 게시판별 수집 건수 확인

@@ -3,8 +3,12 @@
 이 문서는 현재 크롤러가 게시판을 수집할 때 적용하는 정책을 운영 관점에서 정리한 기준 문서입니다.
 
 ## 적용 코드
-- 실행 흐름: `crawler/main.py`
+- 실행 오케스트레이션: `crawler/main.py`
+- 보드 공통 수집 엔진: `crawler/services/board_crawler.py`
+- 보드 타입별 매핑: `crawler/services/board_registry.py`
 - 기간 설정: `crawler/config.py` (`RECENT_NOTICE_DAYS = 365`)
+- 최근성/상시공지 정책: `crawler/policies/notice_policy.py`
+- URL 정규화/중복 병합: `crawler/services/url_normalizer.py`, `crawler/services/dedup_service.py`
 - 목록 항목 메타(`is_permanent_notice`) 판정: 각 parser의 `parse_post_items`
 
 ## 1) 수집 한도와 페이지 순회
@@ -48,9 +52,10 @@
 - `parse_error:<Exception>`: 파싱 중 예외
 - `required_field_empty`: `title` 또는 `content` 누락
 - `robots_disallowed`: robots 정책으로 요청 차단
+- `missing_ntt_id`: `college.kau.ac.kr` 상세 URL에서 `nttId` 식별자 누락
 
 ## 7) 운영 시 권장값
 - 상시공지 비율이 높은 게시판(예: 학사공지)에서 누락을 줄이려면:
   - `--max-pages`를 먼저 늘리고
   - 필요 시 해당 보드의 `max_posts`도 함께 조정합니다.
-- 정책 변경 시에는 `crawler/main.py` 로직과 본 문서를 함께 업데이트합니다.
+- 정책 변경 시에는 `crawler/policies/notice_policy.py`, `crawler/services/board_crawler.py`와 본 문서를 함께 업데이트합니다.

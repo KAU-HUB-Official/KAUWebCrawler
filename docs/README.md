@@ -22,4 +22,7 @@
 ## 관련 경로
 - 크롤러 엔트리포인트: `crawler/main.py`
 - 공통 설정: `crawler/config.py`
+- 보드 수집 엔진: `crawler/services/board_crawler.py`
+- 보드 타입 레지스트리: `crawler/services/board_registry.py`
+- 수집 정책: `crawler/policies/notice_policy.py`
 - 결과 산출물: `output/`

@@ -12,8 +12,15 @@
 작업:
 1. `clients/`에 신규 `XXXClient` 생성
 2. `parsers/`에 신규 `XXXParser` 생성
-3. `main.py`에 `board_type` 분기 추가
+3. `services/board_registry.py`에 `board_type -> BoardAdapter` 매핑 추가
 4. `NOTICE_BOARDS`에 신규 board 설정 추가
+
+## 2-1) BoardAdapter 작성 기준
+- 목록 URL 생성: `build_list_page_url(board, page)`
+- 목록 요청: `fetch_list_html(board, page)`
+- 상세 요청: `fetch_detail(board, detail_url)` (`DetailFetchResult` 반환)
+- parser 생성: `parser_factory(board)`
+- 필요 시 robots 검사 플래그/`min_pages_field` 설정
 
 ## 3) 신규 parser 체크리스트
 - 목록 selector가 최신 구조와 일치하는가
