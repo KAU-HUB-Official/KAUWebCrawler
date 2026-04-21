@@ -41,8 +41,8 @@
 - `original_url` 기준 중복 제거
 - 요청 실패/파싱 실패를 JSON + 로그로 저장
 - `robots.txt` 존중
+- `career.kau.ac.kr` 공지 보드는 사용자 요청에 따라 robots 예외 정책으로 수집
 
 ## 현재 제한
 
-- `career.kau.ac.kr`는 robots 정책이 전면 차단이라, 현재 구현에서 `kau_career` 보드만 예외 처리
 - 일부 게시글은 이미지 본문 위주이며, 텍스트 대신 이미지 ALT/플레이스홀더로 저장
