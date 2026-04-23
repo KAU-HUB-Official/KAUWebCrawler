@@ -3,7 +3,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Callable
 
-from config import DEFAULT_POSTS_PER_BOARD
 from parsers.base_parser import BaseParser
 from policies.notice_policy import evaluate_recent_policy
 from services.url_normalizer import canonicalize_original_url
@@ -100,7 +99,6 @@ def crawl_board(
     failed_items: list[dict] = []
     detail_items: list[dict] = []
     seen_for_board: set[str] = set(known_urls)
-    target_posts = max(1, int(board.get("max_posts", DEFAULT_POSTS_PER_BOARD)))
     effective_max_pages = _resolve_effective_max_pages(board, max_pages=max_pages, adapter=adapter)
 
     for page in range(1, effective_max_pages + 1):
@@ -151,37 +149,29 @@ def crawl_board(
             break
 
     detail_items = _dedup_items(detail_items)
+    permanent_items = [item for item in detail_items if bool(item.get("is_permanent_notice"))]
+    general_items = [item for item in detail_items if not bool(item.get("is_permanent_notice"))]
+    ordered_detail_items = permanent_items + general_items
     logger.info(
-        "[%s] 중복 제거 후 상세 URL 수: %s (max_posts=%s)",
+        "[%s] 중복 제거 후 상세 URL 수: total=%s (permanent=%s, general=%s)",
         board["name"],
-        len(detail_items),
-        target_posts,
+        len(ordered_detail_items),
+        len(permanent_items),
+        len(general_items),
     )
 
     posts: list[dict] = []
-    skip_general_page: int | None = None
 
-    for idx, detail_item in enumerate(detail_items, start=1):
+    for idx, detail_item in enumerate(ordered_detail_items, start=1):
         detail_url = str(detail_item["url"])
         source_page = int(detail_item["page"])
         is_permanent_notice = bool(detail_item["is_permanent_notice"])
-
-        if skip_general_page is not None and source_page != skip_general_page:
-            skip_general_page = None
-        if skip_general_page is not None and source_page == skip_general_page and not is_permanent_notice:
-            logger.info(
-                "[%s] page=%s의 일반공지 잔여 항목 스킵: %s",
-                board["name"],
-                source_page,
-                detail_url,
-            )
-            continue
 
         logger.info(
             "[%s] 상세 수집 중 (%s/%s): %s",
             board["name"],
             idx,
-            len(detail_items),
+            len(ordered_detail_items),
             detail_url,
         )
 
@@ -237,15 +227,18 @@ def crawl_board(
                 published_at=post.published_at,
             )
             if not decision.include_post:
-                if decision.skip_rest_general_in_page:
-                    skip_general_page = source_page
+                if decision.stop_crawling:
+                    logger.info(
+                        "[%s] 정책에 따라 상세 수집 중단: page=%s, url=%s",
+                        board["name"],
+                        source_page,
+                        detail_url,
+                    )
+                    break
                 continue
 
             posts.append(post.to_dict())
             known_urls.add(post.original_url)
-            if len(posts) >= target_posts:
-                logger.info("[%s] 목표 수집 건수 도달(%s), 상세 수집 종료", board["name"], target_posts)
-                break
         except Exception as exc:  # noqa: BLE001
             logger.exception("[%s] 상세 파싱 실패: %s", board["name"], detail_url)
             failed_items.append(

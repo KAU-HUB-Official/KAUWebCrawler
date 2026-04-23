@@ -6,7 +6,7 @@
 - `crawler/clients/`: HTTP 요청, User-Agent, robots 정책, 지연 제어
 - `crawler/parsers/`: 목록/상세 HTML 파싱, 정규화
 - `crawler/services/`: 크롤링 엔진/레지스트리/URL 정규화/기존 데이터 로드/중복 제거
-- `crawler/policies/`: 공지 포함 정책(최근 1년, 상시공지 예외, 페이지 스킵)
+- `crawler/policies/`: 공지 포함 정책(최근 1년, 상시공지 예외, 일반공지 기준 미충족 시 중단)
 - `crawler/models/post.py`: 공통 데이터 모델
 - `crawler/utils/`: 로깅/JSON 저장 유틸
 
@@ -17,7 +17,7 @@
 3. `NOTICE_BOARDS` 순회하며 공통 엔진 `crawl_board()` 실행 (`services/board_crawler.py`)
 4. 목록 수집/신규 URL 선별/상세 파싱/실패 reason 기록 수행
 5. 정책 판단 적용 (`policies/notice_policy.py`):
-   상시공지 예외, 일반공지 1년 필터, 일반공지 페이지 조기 스킵
+   상시공지 전체 수집, 일반공지 1년 필터, 일반공지 작성일이 1년 전 이상/미확인이면 해당 보드 상세 수집 중단
 6. 기존+신규 데이터를 URL/제목 기준 병합·중복 제거 (`services/dedup_service.py`)
 7. 결과/실패/로그 저장
 
@@ -25,7 +25,8 @@
 - URL 정규화: `services/url_normalizer.py`에서 canonical URL 생성
 - 1차: 게시판 내부 상세 URL 중복 제거(`crawl_board` 목록 단계)
 - 2차: 기존 보유 + 신규 결과 병합 시 `original_url` 중복 제거
-- 3차: `title` 정규화(공백 정리 + 소문자화) 기준 중복 제거
+- 3차: `title` 정규화(공백 정리 + 소문자화) 기준 통합
+  - 동일 제목 중복 시 `source_name`, `source_type`, `category_raw` 메타를 배열로 병합
 
 ## 요청 정책
 - 공통 세션(`requests.Session`) 사용

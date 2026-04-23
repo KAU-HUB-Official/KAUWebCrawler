@@ -13,7 +13,7 @@ logger = get_logger("crawler.policies.notice_policy")
 @dataclass(frozen=True)
 class RecentPolicyDecision:
     include_post: bool
-    skip_rest_general_in_page: bool
+    stop_crawling: bool
 
 
 def parse_published_date(published_at: str | None) -> date | None:
@@ -38,7 +38,8 @@ def is_recent_notice(published_at: str | None, *, lookback_days: int = RECENT_NO
         return False
 
     cutoff_date = datetime.now().date() - timedelta(days=lookback_days)
-    return published_date >= cutoff_date
+    # "1년 전 이상"은 비최근으로 판단해 수집 중단 트리거로 사용한다.
+    return published_date > cutoff_date
 
 
 def evaluate_recent_policy(
@@ -52,28 +53,30 @@ def evaluate_recent_policy(
     """
     Returns:
       - include_post: 결과 저장 여부
-      - skip_rest_general_in_page: 현재 페이지의 나머지 일반공지 상세 수집 생략 여부
+      - stop_crawling: 현재 게시판 상세 수집 루프 중단 여부
     """
     if is_permanent_notice:
-        if is_recent_notice(published_at):
-            return RecentPolicyDecision(include_post=True, skip_rest_general_in_page=False)
-        logger.info(
-            "[%s] 상시공지로 간주하여 날짜 필터 예외 적용: published_at=%s, page=%s, url=%s",
-            board_name,
-            published_at,
-            source_page,
-            detail_url,
-        )
-        return RecentPolicyDecision(include_post=True, skip_rest_general_in_page=False)
+        # 상시 공지는 작성일과 무관하게 모두 수집한다.
+        if not is_recent_notice(published_at):
+            logger.info(
+                "[%s] 상시공지로 간주하여 날짜 필터 예외 적용: published_at=%s, page=%s, url=%s",
+                board_name,
+                published_at,
+                source_page,
+                detail_url,
+            )
+        return RecentPolicyDecision(include_post=True, stop_crawling=False)
 
+    # 일반 공지는 최근 1년 이내만 수집한다.
     if is_recent_notice(published_at):
-        return RecentPolicyDecision(include_post=True, skip_rest_general_in_page=False)
+        return RecentPolicyDecision(include_post=True, stop_crawling=False)
 
+    # 일반 공지에서 1년 전 이상/게시일 미확인을 만나면 해당 보드 상세 수집을 종료한다.
     logger.info(
-        "[%s] 일반공지 1년 초과 또는 게시일 미확인으로 스킵 후 다음 페이지 이동: published_at=%s, page=%s, url=%s",
+        "[%s] 일반공지 1년 전 이상 또는 게시일 미확인으로 크롤링 중단: published_at=%s, page=%s, url=%s",
         board_name,
         published_at,
         source_page,
         detail_url,
     )
-    return RecentPolicyDecision(include_post=False, skip_rest_general_in_page=True)
+    return RecentPolicyDecision(include_post=False, stop_crawling=True)
