@@ -20,12 +20,24 @@ FTC_BASE_URL = "https://ftc.kau.ac.kr"
 FTC_NOTICE_LIST_URL = "https://ftc.kau.ac.kr/info/notice_02.php"
 AMTC_BASE_URL = "http://amtc.kau.ac.kr"
 AMTC_NOTICE_LIST_URL = "http://amtc.kau.ac.kr/bbs/board.php"
+FSC_BASE_URL = "http://fsc.kau.ac.kr"
+FSC_NOTICE_LIST_URL = "http://fsc.kau.ac.kr/info/info_01.php"
+GRAD_BASE_URL = "https://grad.kau.ac.kr"
+GRAD_NOTICE_LIST_URL = "https://grad.kau.ac.kr/community/notice_02.php"
+GRADBUS_BASE_URL = "http://gradbus.kau.ac.kr"
+GRADBUS_NOTICE_LIST_URL = "http://gradbus.kau.ac.kr/community/notice_01.php"
+LMS_BASE_URL = "https://lms.kau.ac.kr"
+LMS_NOTICE_LIST_URL = "https://lms.kau.ac.kr/mod/ubboard/view.php?id=55398"
+ESLSCAT_BASE_URL = "https://www.eslscat.com"
+ESLSCAT_NOTICE_LIST_URL = "https://www.eslscat.com/class/student/help/notice_list.asp"
+ASBT_BASE_URL = "https://asbt.kau.ac.kr"
+ASBT_NOTICE_LIST_URL = "https://asbt.kau.ac.kr/customer/notice.php"
 
 SOURCE_NAME = "한국항공대학교 공식 홈페이지"
 SOURCE_TYPE = "university_official_notice"
 CAREER_SOURCE_NAME = "한국항공대학교 대학일자리플러스센터"
 CAREER_SOURCE_TYPE = "university_career_notice"
-COLLEGE_SOURCE_NAME = "한국항공대학교 college.kau.ac.kr 공지"
+COLLEGE_SOURCE_NAME = "한국항공대학교 국제교류처 공지"
 COLLEGE_SOURCE_TYPE = "university_college_notice"
 RESEARCH_SOURCE_NAME = "한국항공대학교 산학협력단"
 RESEARCH_SOURCE_TYPE = "university_research_notice"
@@ -51,6 +63,22 @@ KASI_SOURCE_NAME = "한국항공대학교 항공안전교육원"
 KASI_SOURCE_TYPE = "university_kasi_notice"
 LIFE_SOURCE_NAME = "한국항공대학교 평생교육원"
 LIFE_SOURCE_TYPE = "university_life_notice"
+DREAM_SOURCE_NAME = "한국항공대학교 드림칼리지디자인"
+DREAM_SOURCE_TYPE = "university_dream_college_notice"
+FSC_SOURCE_NAME = "한국항공대학교 새내기성공센터"
+FSC_SOURCE_TYPE = "university_fsc_notice"
+GRAD_SOURCE_NAME = "한국항공대학교 대학원"
+GRAD_SOURCE_TYPE = "university_graduate_notice"
+GRADBUS_SOURCE_NAME = "한국항공대학교 경영대학원"
+GRADBUS_SOURCE_TYPE = "university_graduate_business_notice"
+POLICY_GRAD_SOURCE_NAME = "한국항공대학교 항공우주정책대학원"
+POLICY_GRAD_SOURCE_TYPE = "university_policy_graduate_notice"
+LMS_SOURCE_NAME = "한국항공대학교 LMS 공지사항"
+LMS_SOURCE_TYPE = "university_lms_notice"
+ESLSCAT_SOURCE_NAME = "한국항공대학교 토익 사이버 강좌"
+ESLSCAT_SOURCE_TYPE = "university_toeic_cyber_notice"
+ASBT_SOURCE_NAME = "한국항공대학교 첨단분야 부트캠프사업단"
+ASBT_SOURCE_TYPE = "university_asbt_notice"
 
 USER_AGENT = (
     "Mozilla/5.0 (compatible; KAU-Notice-Crawler/1.0; +https://kau.ac.kr)"
@@ -146,7 +174,7 @@ NOTICE_BOARDS = [
     },
     {
         "key": "college_gc63585_notice",
-        "name": "college.kau.ac.kr 공지(gc63585b)",
+        "name": "국제교류처 공지(gc63585b)",
         "board_type": "kau_college",
         "list_url": COLLEGE_NOTICE_LIST_URL,
         "site_flag": "inter_www",
@@ -157,6 +185,20 @@ NOTICE_BOARDS = [
         "max_posts": DEFAULT_POSTS_PER_BOARD,
         "source_name": COLLEGE_SOURCE_NAME,
         "source_type": COLLEGE_SOURCE_TYPE,
+    },
+    {
+        "key": "college_gc24251_notice",
+        "name": "드림칼리지디자인 공지사항",
+        "board_type": "kau_college",
+        "list_url": "http://college.kau.ac.kr/web/pages/gc24251b.do",
+        "site_flag": "mat_WWW",
+        "bbs_id": "0414",
+        "mnu_id": "gc24251b",
+        "bbs_auth": "30",
+        "page_unit": DEFAULT_POSTS_PER_BOARD,
+        "max_posts": DEFAULT_POSTS_PER_BOARD,
+        "source_name": DREAM_SOURCE_NAME,
+        "source_type": DREAM_SOURCE_TYPE,
     },
     {
         "key": "research_notice",
@@ -252,6 +294,39 @@ NOTICE_BOARDS = [
         "source_type": FTC_SOURCE_TYPE,
     },
     {
+        "key": "fsc_notice",
+        "name": "새내기성공센터 공지사항",
+        "board_type": "kau_community_php",
+        "list_url": FSC_NOTICE_LIST_URL,
+        "base_url": FSC_BASE_URL,
+        "code": "s1101",
+        "max_posts": DEFAULT_POSTS_PER_BOARD,
+        "source_name": FSC_SOURCE_NAME,
+        "source_type": FSC_SOURCE_TYPE,
+    },
+    {
+        "key": "grad_notice",
+        "name": "대학원 공지사항",
+        "board_type": "kau_community_php",
+        "list_url": GRAD_NOTICE_LIST_URL,
+        "base_url": GRAD_BASE_URL,
+        "code": "s1201",
+        "max_posts": DEFAULT_POSTS_PER_BOARD,
+        "source_name": GRAD_SOURCE_NAME,
+        "source_type": GRAD_SOURCE_TYPE,
+    },
+    {
+        "key": "gradbus_notice",
+        "name": "경영대학원 공지사항",
+        "board_type": "kau_community_php",
+        "list_url": GRADBUS_NOTICE_LIST_URL,
+        "base_url": GRADBUS_BASE_URL,
+        "code": "s1101",
+        "max_posts": DEFAULT_POSTS_PER_BOARD,
+        "source_name": GRADBUS_SOURCE_NAME,
+        "source_type": GRADBUS_SOURCE_TYPE,
+    },
+    {
         "key": "atci_notice",
         "name": "항공교통관제교육원 공지사항",
         "board_type": "kau_college",
@@ -264,6 +339,20 @@ NOTICE_BOARDS = [
         "max_posts": DEFAULT_POSTS_PER_BOARD,
         "source_name": ATCI_SOURCE_NAME,
         "source_type": ATCI_SOURCE_TYPE,
+    },
+    {
+        "key": "college_gc91652_notice",
+        "name": "항공우주정책대학원 공지사항",
+        "board_type": "kau_college",
+        "list_url": "http://college.kau.ac.kr/web/pages/gc91652b.do",
+        "site_flag": "lawpolicy_www",
+        "bbs_id": "0349",
+        "mnu_id": "gc91652b",
+        "bbs_auth": "30",
+        "page_unit": DEFAULT_POSTS_PER_BOARD,
+        "max_posts": DEFAULT_POSTS_PER_BOARD,
+        "source_name": POLICY_GRAD_SOURCE_NAME,
+        "source_type": POLICY_GRAD_SOURCE_TYPE,
     },
     {
         "key": "amtc_notice",
@@ -304,6 +393,26 @@ NOTICE_BOARDS = [
         "max_posts": DEFAULT_POSTS_PER_BOARD,
         "source_name": LIFE_SOURCE_NAME,
         "source_type": LIFE_SOURCE_TYPE,
+    },
+    {
+        "key": "lms_notice",
+        "name": "LMS 공지사항",
+        "board_type": "kau_lms_ubboard",
+        "list_url": LMS_NOTICE_LIST_URL,
+        "base_url": LMS_BASE_URL,
+        "max_posts": DEFAULT_POSTS_PER_BOARD,
+        "source_name": LMS_SOURCE_NAME,
+        "source_type": LMS_SOURCE_TYPE,
+    },
+    {
+        "key": "asbt_notice",
+        "name": "첨단분야 부트캠프사업단 공지사항",
+        "board_type": "kau_asbt",
+        "list_url": ASBT_NOTICE_LIST_URL,
+        "base_url": ASBT_BASE_URL,
+        "max_posts": DEFAULT_POSTS_PER_BOARD,
+        "source_name": ASBT_SOURCE_NAME,
+        "source_type": ASBT_SOURCE_TYPE,
     },
 ]
 

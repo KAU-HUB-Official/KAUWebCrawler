@@ -11,11 +11,9 @@ from models.post import Post
 from parsers.base_parser import BaseParser
 
 
-class KAUFTCParser(BaseParser):
+class KAUASBTParser(BaseParser):
     """
-    한국항공대학교 비행교육원(ftc.kau.ac.kr) 공지 파서.
-
-    HTML 구조가 바뀌면 이 파일 selector를 수정한다.
+    첨단분야 부트캠프사업단(asbt.kau.ac.kr) 공지 파서.
     """
 
     def __init__(
@@ -34,9 +32,8 @@ class KAUFTCParser(BaseParser):
 
         items: list[dict] = []
 
-        # 목록은 table.table_board tr 단위이며 상시 공지는 tr.emp / span.notice로 노출된다.
-        for row in soup.select("table.table_board tr"):
-            link = row.select_one("a[href*='mode=read'][href*='seq=']")
+        for row in soup.select("table tbody tr"):
+            link = row.select_one("a[href*='ptype=view'][href*='idx=']")
             if not link:
                 continue
 
@@ -44,25 +41,28 @@ class KAUFTCParser(BaseParser):
             if not href:
                 continue
 
+            absolute_url = urljoin(page_url, href)
+            if "ptype=view" not in absolute_url or "idx=" not in absolute_url:
+                continue
+
+            row_classes = set(row.get("class") or [])
+            first_cell = row.select_one("td")
+            marker_text = self.normalize_whitespace(first_cell.get_text(" ", strip=True) if first_cell else "")
             is_permanent_notice = (
-                row.has_attr("class")
-                and any(cls in {"emp", "bo_notice"} for cls in (row.get("class") or []))
-            ) or row.select_one("span.notice, span.notice_item") is not None
-            if not is_permanent_notice:
-                first_cell = row.select_one("td")
-                marker_text = self.normalize_whitespace(first_cell.get_text(" ", strip=True) if first_cell else "")
-                is_permanent_notice = "공지" in marker_text or "notice" in marker_text.lower()
+                "point" in row_classes
+                or row.select_one(".notice, .m_notice") is not None
+                or "공지" in marker_text
+            )
 
             items.append(
                 {
-                    "url": urljoin(page_url, href),
+                    "url": absolute_url,
                     "is_permanent_notice": is_permanent_notice,
                 }
             )
 
         if not items:
-            # 목록 구조가 가변적인 경우 fallback으로 링크를 수집한다.
-            for link in soup.select("a[href*='mode=read'][href*='seq=']"):
+            for link in soup.select("a[href*='ptype=view'][href*='idx=']"):
                 href = (link.get("href") or "").strip()
                 if href:
                     items.append(
@@ -113,18 +113,17 @@ class KAUFTCParser(BaseParser):
         )
 
     def _extract_title(self, soup: BeautifulSoup) -> str:
-        node = soup.select_one("div.view_header h4")
+        node = soup.select_one("div.bbs_view h3.subject")
         if not node:
             return ""
         return self.normalize_whitespace(node.get_text(" ", strip=True))
 
     def _extract_content_text(self, soup: BeautifulSoup) -> str:
-        content_node = soup.select_one("div.view_conts")
+        content_node = soup.select_one("div.bbs_view div.view_content")
         if not content_node:
             return ""
 
         lines: list[str] = []
-
         for child in content_node.children:
             if isinstance(child, NavigableString):
                 text = self.normalize_whitespace(str(child))
@@ -157,44 +156,41 @@ class KAUFTCParser(BaseParser):
         return ""
 
     def _extract_published_at(self, soup: BeautifulSoup) -> str | None:
-        # 상세 헤더의 view_info li 중 날짜 패턴을 우선 사용한다.
-        for node in soup.select("div.view_header ul.view_info li"):
+        for node in soup.select("div.bbs_view ul li"):
             text = node.get_text(" ", strip=True)
-            match = re.search(r"(\d{4}[./-]\d{1,2}[./-]\d{1,2})", text)
-            if not match:
+            if "작성일" not in text:
                 continue
 
-            raw = match.group(1).replace(".", "-").replace("/", "-")
-            year, month, day = raw.split("-")
+            match = re.search(r"(\d{4})[./-](\d{1,2})[./-](\d{1,2})", text)
+            if not match:
+                continue
+            year, month, day = match.groups()
             return f"{int(year):04d}-{int(month):02d}-{int(day):02d}"
 
         return None
 
     def _extract_category(self, soup: BeautifulSoup) -> str | None:
-        # breadcrumb가 없으면 상세 메타 첫 항목(예: 비행교육원) 또는 fallback 사용.
-        first_meta = soup.select_one("div.view_header ul.view_info li")
-        if first_meta:
-            value = self.normalize_whitespace(first_meta.get_text(" ", strip=True))
-            lowered = value.lower()
-            if value and lowered not in {"관리자", "admin", "administrator"}:
-                return value
+        node = soup.select_one("#subtitle h3")
+        if node:
+            category = self.normalize_whitespace(node.get_text(" ", strip=True))
+            if category:
+                return category
         return self.category_fallback
 
     def _extract_attachments(self, soup: BeautifulSoup, detail_url: str) -> list[dict]:
         attachments: list[dict] = []
 
-        # 첨부는 div.attach a[href]에 노출된다.
-        for link in soup.select("div.attach a[href], div.view_attatch a[href], li.attatch a[href]"):
+        for link in soup.select("div.bbs_view div.view_file a[href]"):
             href = (link.get("href") or "").strip()
             if not href:
                 continue
 
             absolute_url = urljoin(detail_url, href)
-            name = self.normalize_whitespace(
-                (link.get("download") or "").strip()
-                or link.get_text(" ", strip=True)
-                or urlparse(absolute_url).path.split("/")[-1]
-            )
+            name = self.normalize_whitespace(link.get_text(" ", strip=True))
+            name = re.sub(r"^attach_file\s*", "", name, flags=re.IGNORECASE).strip()
+            if not name:
+                name = urlparse(absolute_url).path.split("/")[-1]
+
             attachments.append({"name": name, "url": absolute_url})
 
         deduped: list[dict] = []

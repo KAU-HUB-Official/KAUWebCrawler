@@ -12,6 +12,7 @@
 
 ## 실행 흐름
 1. `main.py`에서 clients/adapters 생성 (`services/board_registry.py`)
+   - 현재 주요 board_type: `kau_official`, `kau_career`, `kau_college`, `kau_research`, `kau_admission`, `kau_ctl`, `kau_library`, `kau_ftc`, `kau_amtc`, `kau_community_php`, `kau_lms_ubboard`, `kau_asbt`
 2. 기존 결과 파일 로드 후 `known_urls` 구성 (`services/post_store.py`)
 3. `NOTICE_BOARDS` 순회하며 공통 엔진 `crawl_board()` 실행 (`services/board_crawler.py`)
 4. 목록 수집/신규 URL 선별/상세 파싱/실패 reason 기록 수행

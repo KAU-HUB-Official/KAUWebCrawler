@@ -96,6 +96,25 @@
 - 첨부: `div.attach a[href]` (fallback: `div.view_attatch`, `li.attatch`)
 - 카테고리: `view_info` 첫 항목 fallback
 
+## 공통 PHP 공지 (`kau_community_php` + `kau_ftc_parser.py`)
+
+### 대상 사이트
+- 새내기성공센터: `http://fsc.kau.ac.kr/info/info_01.php` (`code=s1101`)
+- 대학원: `https://grad.kau.ac.kr/community/notice_02.php` (`code=s1201`)
+- 경영대학원: `http://gradbus.kau.ac.kr/community/notice_01.php` (`code=s1101`)
+
+### 목록 URL
+- 선택자: `a[href*='mode=read'][href*='seq=']`
+- 링크 규칙: `...php?...&code=sXXXX&page=...&mode=read&seq=...`
+
+### 상세 필드
+- 제목: `div.view_header h4`
+- 작성일: `div.view_header ul.view_info li` 내 날짜 패턴
+- 본문: `div.view_conts`
+- 첨부: `div.attach a[href]`, `div.view_attatch a[href]`, `li.attatch a[href]`
+- 카테고리: `view_info` 첫 항목 사용
+  - 첫 항목이 `관리자` 계열이면 board name fallback 사용
+
 ## 항공기술교육원 공지 (`kau_amtc_parser.py`)
 
 ### 목록 URL
@@ -109,6 +128,52 @@
 - 본문: `#bo_v_con` (`#bo_v_atc` fallback)
 - 첨부: `#bo_v_file a[href]`, `a[href*='download.php']`
 - 카테고리: `<title>` 앞부분(예: `일반/학사공지`) fallback
+
+## LMS 공지 (`kau_lms_parser.py`)
+
+### 목록 URL
+- 페이지 URL: `https://lms.kau.ac.kr/mod/ubboard/view.php?id=55398`
+- 목록 선택자: `div.ubboard_list table.ubboard_table tbody tr`
+- 링크 규칙: `a[href*='article.php'][href*='bwid=']`
+- 상시공지 판정: `img[alt*='공지']` 또는 공지 마커 셀
+
+### 상세 필드
+- 제목: `div.ubboard_view .subject`
+- 작성일: `div.ubboard_view .date`, `div.ubboard_view .writer` 텍스트에서 날짜 패턴 추출
+- 본문: `div.ubboard_view .content .text_to_html` (`.content` fallback)
+- 첨부: `.attach/.file` 링크 + `pluginfile.php`/`download.php` 링크
+- 카테고리: breadcrumb 마지막 항목 fallback
+
+## 부트캠프 사업단 공지 (`kau_asbt_parser.py`)
+
+### 목록 URL
+- 페이지 URL: `https://asbt.kau.ac.kr/customer/notice.php?ptype=list&code=notice`
+- 목록 선택자: `table tbody tr a[href*='ptype=view'][href*='idx=']`
+- 링크 규칙: `notice.php?ptype=view&idx=...&code=notice`
+- 상시공지 판정: `tr.point` 또는 `.notice/.m_notice` 마커
+
+### 상세 필드
+- 제목: `div.bbs_view h3.subject`
+- 작성일: `div.bbs_view ul li` 중 `작성일` 항목
+- 본문: `div.bbs_view div.view_content`
+- 첨부: `div.bbs_view div.view_file a[href]`
+- 카테고리: `#subtitle h3` fallback
+
+## 토익 사이버 강좌 공지 (`kau_eslscat_parser.py`)
+
+현재 `eslscat_notice` 보드는 운영 대상에서 제외되어 기본 수집 목록(`NOTICE_BOARDS`)에는 포함되지 않습니다.
+
+### 목록 URL
+- 페이지 URL: `https://www.eslscat.com/class/student/help/notice_list.asp`
+- 목록 선택자: `a[href*='javascript:goview(']`
+- 링크 규칙: `javascript:goview(id)` → `notice_view.asp?id={id}` 형태로 변환
+
+### 상세 필드
+- 제목: `table.tt_list thead th`
+- 작성일: `table.tt_list tbody tr` 중 `작성일` 행
+- 본문: `table.tt_list tbody tr:last-child td[colspan]`
+- 첨부: `첨부파일` 행의 `a[href]`
+- 카테고리: `li.sub_title` fallback
 
 ## 산학협력단 공지 (`kau_research_parser.py`)
 
@@ -151,4 +216,8 @@
 - `ctl.kau.ac.kr` 상세 URL은 `code`, `mode`, `seq`만 유지합니다.
 - `lib.kau.ac.kr` 상세 URL은 `sb_no`만 유지합니다.
 - `ftc.kau.ac.kr` 상세 URL은 `code`, `mode`, `seq`만 유지합니다.
+- `fsc.kau.ac.kr`, `grad.kau.ac.kr`, `gradbus.kau.ac.kr` 상세 URL은 `code`, `mode`, `seq`만 유지합니다.
+- `lms.kau.ac.kr` 상세 URL은 `id`, `bwid`만 유지합니다.
+- `asbt.kau.ac.kr` 상세 URL은 `ptype=view`, `idx`, `code`만 유지합니다.
+- `www.eslscat.com` 상세 URL은 `id`만 유지합니다.
 - `amtc.kau.ac.kr` 상세 URL은 `bo_table`, `wr_id`만 유지합니다.

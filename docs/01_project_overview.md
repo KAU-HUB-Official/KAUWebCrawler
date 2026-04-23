@@ -8,17 +8,27 @@
 
 - `kau.ac.kr` 공지 게시판 7종
 - `career.kau.ac.kr` 대학일자리센터 공지사항 게시판(`https://career.kau.ac.kr/ko/community/notice`)
-- `college.kau.ac.kr` 공지 게시판 2종
+- `college.kau.ac.kr` 공지 게시판 9종
   - 국제교류처(`gc63585b`)
   - 인권센터(`gc22052b`)
+  - 생활관(`gc65332b`)
+  - 항공우주박물관(`gc73673b`)
+  - 항공교통관제교육원(`gc80226b`)
+  - 항공안전교육원(`gc63977b`)
+  - 평생교육원(`gc11101b`)
+  - 드림칼리지디자인(`gc24251b`)
+  - 항공우주정책대학원(`gc91652b`)
 - `research.kau.ac.kr` 산학협력단 공지사항
 - `ibhak.kau.ac.kr` 입학처 공지사항
 - `ctl.kau.ac.kr` 교수학습센터 공지사항
 - `lib.kau.ac.kr` 학술정보관 일반공지
 - `ftc.kau.ac.kr` 비행교육원 공지사항
 - `amtc.kau.ac.kr` 항공기술교육원 공지사항
-- `college.kau.ac.kr` 생활관/항공교통관제교육원/항공안전교육원/평생교육원 공지사항
-- `aerospacemuseum.or.kr` 박물관 공지사항(실제 수집은 `college.kau.ac.kr` 공지 페이지)
+- `fsc.kau.ac.kr` 새내기성공센터 공지사항
+- `grad.kau.ac.kr` 대학원 공지사항
+- `gradbus.kau.ac.kr` 경영대학원 공지사항
+- `lms.kau.ac.kr` LMS 공지사항
+- `asbt.kau.ac.kr` 첨단분야 부트캠프사업단 공지사항
 
 ## 수집 데이터 포맷
 

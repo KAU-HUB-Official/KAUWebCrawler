@@ -15,6 +15,13 @@
 3. `services/board_registry.py`에 `board_type -> BoardAdapter` 매핑 추가
 4. `NOTICE_BOARDS`에 신규 board 설정 추가
 
+## 2-0) 현재 재사용 가능한 board_type 예시
+- `kau_college`: college API(JSON) 기반 게시판
+- `kau_community_php`: `mode=read&seq` 공통 PHP 게시판(fsc/grad/gradbus)
+- `kau_lms_ubboard`: LMS `view.php`/`article.php` 게시판
+- `kau_asbt`: `ptype=list/view&idx=` 형태 게시판
+- `kau_eslscat`: `javascript:goview(id)` + POST 상세 게시판
+
 ## 2-1) BoardAdapter 작성 기준
 - 목록 URL 생성: `build_list_page_url(board, page)`
 - 목록 요청: `fetch_list_html(board, page)`

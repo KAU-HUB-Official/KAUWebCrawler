@@ -105,6 +105,56 @@ def canonicalize_original_url(url: str) -> str:
             normalized_query = urlencode(compact_query)
             return urlunparse((scheme, netloc, path, "", normalized_query, ""))
 
+    # fsc/grad/gradbus 계열 공지 상세 URL:
+    #   /info/info_01.php?...&code=s1101&page=..&mode=read&seq=NNNN
+    #   /community/notice_02.php?...&code=s1201&page=..&mode=read&seq=NNNN
+    #   /community/notice_01.php?...&code=s1101&page=..&mode=read&seq=NNNN
+    if host in {"fsc.kau.ac.kr", "grad.kau.ac.kr", "gradbus.kau.ac.kr"} and path.endswith(".php"):
+        query = parse_qs(parsed.query, keep_blank_values=True)
+        if "mode" in query and "seq" in query:
+            compact_query: dict[str, str] = {}
+            if query.get("code"):
+                compact_query["code"] = query["code"][-1]
+            compact_query["mode"] = query["mode"][-1]
+            compact_query["seq"] = query["seq"][-1]
+            normalized_query = urlencode(compact_query)
+            return urlunparse((scheme, netloc, path, "", normalized_query, ""))
+
+    # lms.kau.ac.kr ubboard 상세 URL:
+    #   /mod/ubboard/article.php?id=55398&bwid=NNNN
+    if host.endswith("lms.kau.ac.kr") and path.endswith("/mod/ubboard/article.php"):
+        query = parse_qs(parsed.query, keep_blank_values=True)
+        if query.get("id") and query.get("bwid"):
+            compact_query = {
+                "id": query["id"][-1],
+                "bwid": query["bwid"][-1],
+            }
+            normalized_query = urlencode(compact_query)
+            return urlunparse((scheme, netloc, path, "", normalized_query, ""))
+
+    # asbt.kau.ac.kr 공지 상세 URL:
+    #   /customer/notice.php?ptype=view&idx=NNN&page=..&code=notice
+    if host.endswith("asbt.kau.ac.kr") and path.endswith("/customer/notice.php"):
+        query = parse_qs(parsed.query, keep_blank_values=True)
+        if query.get("ptype", [""])[-1] == "view" and query.get("idx"):
+            compact_query = {
+                "ptype": "view",
+                "idx": query["idx"][-1],
+            }
+            if query.get("code"):
+                compact_query["code"] = query["code"][-1]
+            normalized_query = urlencode(compact_query)
+            return urlunparse((scheme, netloc, path, "", normalized_query, ""))
+
+    # eslscat 공지 상세 URL:
+    #   /class/student/help/notice_view.asp?id=NNN
+    if host.endswith("eslscat.com") and path.endswith("/class/student/help/notice_view.asp"):
+        query = parse_qs(parsed.query, keep_blank_values=True)
+        if query.get("id"):
+            compact_query = {"id": query["id"][-1]}
+            normalized_query = urlencode(compact_query)
+            return urlunparse((scheme, netloc, path, "", normalized_query, ""))
+
     # amtc.kau.ac.kr 공지 상세 URL:
     #   /bbs/board.php?bo_table=notice&wr_id=NNN[&...]
     # bo_table, wr_id만 유지한다.

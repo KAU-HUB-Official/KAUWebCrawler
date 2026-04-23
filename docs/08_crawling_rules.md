@@ -53,6 +53,7 @@
 - `required_field_empty`: `title` 또는 `content` 누락
 - `robots_disallowed`: robots 정책으로 요청 차단
 - `missing_ntt_id`: `college.kau.ac.kr` 상세 URL에서 `nttId` 식별자 누락
+- `missing_notice_id`: `eslscat` 상세 URL에서 `id` 식별자 누락
 
 ## 7) 운영 시 권장값
 - 상시공지 비율이 높은 게시판(예: 학사공지)에서 누락을 줄이려면:

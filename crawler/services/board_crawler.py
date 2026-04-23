@@ -204,6 +204,8 @@ def crawl_board(
         if not fetch_result.html:
             if fetch_result.failure_reason == "missing_ntt_id":
                 logger.warning("[%s] 상세 URL에 nttId 누락: %s", board["name"], detail_url)
+            elif fetch_result.failure_reason == "missing_notice_id":
+                logger.warning("[%s] 상세 URL에 notice id 누락: %s", board["name"], detail_url)
             failed_items.append(
                 {
                     "board": board["name"],

@@ -6,21 +6,46 @@ from urllib.parse import parse_qs, urlparse
 
 from clients.kau_admission_client import KAUAdmissionClient
 from clients.kau_amtc_client import KAUAMTCClient
+from clients.kau_asbt_client import KAUASBTClient
 from clients.kau_career_client import KAUCareerClient
 from clients.kau_college_client import KAUCollegeClient
+from clients.kau_community_php_client import KAUCommunityPHPClient
 from clients.kau_ctl_client import KAUCTLClient
+from clients.kau_eslscat_client import KAUESLSCATClient
 from clients.kau_ftc_client import KAUFTCClient
 from clients.kau_library_client import KAULibraryClient
+from clients.kau_lms_client import KAULMSClient
 from clients.kau_official_client import KAUOfficialClient
 from clients.kau_research_client import KAUResearchClient
-from config import AMTC_BASE_URL, AMTC_NOTICE_LIST_URL, DEFAULT_POSTS_PER_BOARD, FTC_BASE_URL, FTC_NOTICE_LIST_URL
+from config import (
+    AMTC_BASE_URL,
+    AMTC_NOTICE_LIST_URL,
+    ASBT_BASE_URL,
+    ASBT_NOTICE_LIST_URL,
+    DEFAULT_POSTS_PER_BOARD,
+    ESLSCAT_BASE_URL,
+    ESLSCAT_NOTICE_LIST_URL,
+    FSC_BASE_URL,
+    FSC_NOTICE_LIST_URL,
+    FTC_BASE_URL,
+    FTC_NOTICE_LIST_URL,
+    GRAD_BASE_URL,
+    GRAD_NOTICE_LIST_URL,
+    GRADBUS_BASE_URL,
+    GRADBUS_NOTICE_LIST_URL,
+    LMS_BASE_URL,
+    LMS_NOTICE_LIST_URL,
+)
 from parsers.kau_admission_parser import KAUAdmissionParser
 from parsers.kau_amtc_parser import KAUAMTCParser
+from parsers.kau_asbt_parser import KAUASBTParser
 from parsers.kau_career_parser import KAUCareerParser
 from parsers.kau_college_parser import KAUCollegeParser
 from parsers.kau_ctl_parser import KAUCTLParser
+from parsers.kau_eslscat_parser import KAUESLSCATParser
 from parsers.kau_ftc_parser import KAUFTCParser
 from parsers.kau_library_parser import KAULibraryParser
+from parsers.kau_lms_parser import KAULMSParser
 from parsers.kau_official_parser import KAUOfficialParser
 from parsers.kau_research_parser import KAUResearchParser
 from services.board_crawler import BoardAdapter, DetailFetchResult
@@ -37,6 +62,10 @@ class ClientRegistry:
     library: KAULibraryClient
     ftc: KAUFTCClient
     amtc: KAUAMTCClient
+    community_php: dict[str, KAUCommunityPHPClient]
+    lms: KAULMSClient
+    asbt: KAUASBTClient
+    eslscat: KAUESLSCATClient
 
     def close(self) -> None:
         for client in (
@@ -49,7 +78,12 @@ class ClientRegistry:
             self.library,
             self.ftc,
             self.amtc,
+            self.lms,
+            self.asbt,
+            self.eslscat,
         ):
+            client.session.close()
+        for client in self.community_php.values():
             client.session.close()
 
 
@@ -64,6 +98,32 @@ def build_clients() -> ClientRegistry:
         library=KAULibraryClient(),
         ftc=KAUFTCClient(base_url=FTC_BASE_URL, notice_list_url=FTC_NOTICE_LIST_URL),
         amtc=KAUAMTCClient(base_url=AMTC_BASE_URL, notice_list_url=AMTC_NOTICE_LIST_URL),
+        community_php={
+            FSC_BASE_URL: KAUCommunityPHPClient(
+                base_url=FSC_BASE_URL,
+                notice_list_url=FSC_NOTICE_LIST_URL,
+            ),
+            GRAD_BASE_URL: KAUCommunityPHPClient(
+                base_url=GRAD_BASE_URL,
+                notice_list_url=GRAD_NOTICE_LIST_URL,
+            ),
+            GRADBUS_BASE_URL: KAUCommunityPHPClient(
+                base_url=GRADBUS_BASE_URL,
+                notice_list_url=GRADBUS_NOTICE_LIST_URL,
+            ),
+        },
+        lms=KAULMSClient(
+            base_url=LMS_BASE_URL,
+            notice_list_url=LMS_NOTICE_LIST_URL,
+        ),
+        asbt=KAUASBTClient(
+            base_url=ASBT_BASE_URL,
+            notice_list_url=ASBT_NOTICE_LIST_URL,
+        ),
+        eslscat=KAUESLSCATClient(
+            base_url=ESLSCAT_BASE_URL,
+            notice_list_url=ESLSCAT_NOTICE_LIST_URL,
+        ),
     )
 
 
@@ -86,6 +146,39 @@ def _fetch_college_detail(
         mnu_id=board["mnu_id"],
         bbs_auth=board["bbs_auth"],
     )
+    return DetailFetchResult(html=html, failure_reason="request_failed")
+
+
+def _resolve_community_client(
+    board: dict[str, Any],
+    *,
+    clients: ClientRegistry,
+) -> KAUCommunityPHPClient:
+    base_url = str(board.get("base_url") or "").strip()
+    if not base_url:
+        raise KeyError("community board requires base_url")
+
+    client = clients.community_php.get(base_url)
+    if client is None:
+        client = KAUCommunityPHPClient(
+            base_url=base_url,
+            notice_list_url=board["list_url"],
+        )
+        clients.community_php[base_url] = client
+    return client
+
+
+def _fetch_eslscat_detail(
+    detail_url: str,
+    *,
+    client: KAUESLSCATClient,
+) -> DetailFetchResult:
+    query = parse_qs(urlparse(detail_url).query)
+    notice_id = (query.get("id") or [""])[-1]
+    if not notice_id:
+        return DetailFetchResult(html=None, failure_reason="missing_notice_id")
+
+    html = client.fetch_notice_detail(notice_id=notice_id)
     return DetailFetchResult(html=html, failure_reason="request_failed")
 
 
@@ -249,6 +342,76 @@ def build_board_adapters(clients: ClientRegistry) -> dict[str, BoardAdapter]:
             ),
             fetch_detail=lambda board, detail_url: DetailFetchResult(
                 html=clients.ftc.fetch_notice_detail(detail_url),
+                failure_reason="request_failed",
+            ),
+        ),
+        "kau_community_php": BoardAdapter(
+            parser_factory=lambda board: KAUFTCParser(
+                source_name=board["source_name"],
+                source_type=board["source_type"],
+                category_fallback=board.get("name"),
+            ),
+            build_list_page_url=lambda board, page: _resolve_community_client(
+                board,
+                clients=clients,
+            ).build_notice_list_url(
+                code=board["code"],
+                page=page,
+            ),
+            fetch_list_html=lambda board, page: _resolve_community_client(
+                board,
+                clients=clients,
+            ).fetch_notice_list(
+                code=board["code"],
+                page=page,
+            ),
+            fetch_detail=lambda board, detail_url: DetailFetchResult(
+                html=_resolve_community_client(
+                    board,
+                    clients=clients,
+                ).fetch_notice_detail(detail_url),
+                failure_reason="request_failed",
+            ),
+        ),
+        "kau_lms_ubboard": BoardAdapter(
+            parser_factory=lambda board: KAULMSParser(
+                source_name=board["source_name"],
+                source_type=board["source_type"],
+                category_fallback=board.get("name"),
+            ),
+            build_list_page_url=lambda board, page: clients.lms.build_notice_list_url(page=page),
+            fetch_list_html=lambda board, page: clients.lms.fetch_notice_list(page=page),
+            fetch_detail=lambda board, detail_url: DetailFetchResult(
+                html=clients.lms.fetch_notice_detail(detail_url),
+                failure_reason="request_failed",
+            ),
+        ),
+        "kau_eslscat": BoardAdapter(
+            parser_factory=lambda board: KAUESLSCATParser(
+                source_name=board["source_name"],
+                source_type=board["source_type"],
+                category_fallback=board.get("name"),
+            ),
+            build_list_page_url=lambda board, page: clients.eslscat.build_notice_list_url(page=page),
+            fetch_list_html=lambda board, page: clients.eslscat.fetch_notice_list(page=page),
+            fetch_detail=lambda board, detail_url: _fetch_eslscat_detail(
+                detail_url,
+                client=clients.eslscat,
+            ),
+            can_fetch=clients.eslscat.can_fetch,
+            check_robots_on_list=True,
+            check_robots_on_detail=True,
+        ),
+        "kau_asbt": BoardAdapter(
+            parser_factory=lambda board: KAUASBTParser(
+                source_name=board["source_name"],
+                source_type=board["source_type"],
+                category_fallback=board.get("name"),
+            ),
+            build_list_page_url=lambda board, page: clients.asbt.build_notice_list_url(page=page),
+            fetch_list_html=lambda board, page: clients.asbt.fetch_notice_list(page=page),
+            fetch_detail=lambda board, detail_url: DetailFetchResult(
+                html=clients.asbt.fetch_notice_detail(detail_url),
                 failure_reason="request_failed",
             ),
         ),
