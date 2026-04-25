@@ -18,6 +18,8 @@ from clients.kau_lms_client import KAULMSClient
 from clients.kau_official_client import KAUOfficialClient
 from clients.kau_research_client import KAUResearchClient
 from config import (
+    AISW_BASE_URL,
+    AISW_NOTICE_LIST_URL,
     AMTC_BASE_URL,
     AMTC_NOTICE_LIST_URL,
     ASBT_BASE_URL,
@@ -39,6 +41,7 @@ from config import (
 from parsers.kau_admission_parser import KAUAdmissionParser
 from parsers.kau_amtc_parser import KAUAMTCParser
 from parsers.kau_asbt_parser import KAUASBTParser
+from parsers.kau_card_notice_parser import KAUCardNoticeParser
 from parsers.kau_career_parser import KAUCareerParser
 from parsers.kau_college_parser import KAUCollegeParser
 from parsers.kau_ctl_parser import KAUCTLParser
@@ -110,6 +113,10 @@ def build_clients() -> ClientRegistry:
             GRADBUS_BASE_URL: KAUCommunityPHPClient(
                 base_url=GRADBUS_BASE_URL,
                 notice_list_url=GRADBUS_NOTICE_LIST_URL,
+            ),
+            AISW_BASE_URL: KAUCommunityPHPClient(
+                base_url=AISW_BASE_URL,
+                notice_list_url=AISW_NOTICE_LIST_URL,
             ),
         },
         lms=KAULMSClient(
@@ -248,6 +255,34 @@ def build_board_adapters(clients: ClientRegistry) -> dict[str, BoardAdapter]:
             ),
             can_fetch=clients.college.can_fetch,
             check_robots_on_list=True,
+        ),
+        "kau_card_notice": BoardAdapter(
+            parser_factory=lambda board: KAUCardNoticeParser(
+                source_name=board["source_name"],
+                source_type=board["source_type"],
+                category_fallback=board.get("name"),
+            ),
+            build_list_page_url=lambda board, page: _resolve_community_client(
+                board,
+                clients=clients,
+            ).build_notice_list_url(
+                code=board["code"],
+                page=page,
+            ),
+            fetch_list_html=lambda board, page: _resolve_community_client(
+                board,
+                clients=clients,
+            ).fetch_notice_list(
+                code=board["code"],
+                page=page,
+            ),
+            fetch_detail=lambda board, detail_url: DetailFetchResult(
+                html=_resolve_community_client(
+                    board,
+                    clients=clients,
+                ).fetch_notice_detail(detail_url),
+                failure_reason="request_failed",
+            ),
         ),
         "kau_research": BoardAdapter(
             parser_factory=lambda board: KAUResearchParser(

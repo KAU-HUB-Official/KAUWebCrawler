@@ -33,12 +33,12 @@
    - `services/post_store.py` + `services/url_normalizer.py`
 3. `NOTICE_BOARDS`를 순회하며 `crawl_board()` 실행
    - `services/board_crawler.py`
-4. 목록 수집 후 신규 URL만 상세 수집
-   - 목록 단계에서 canonical URL 기준 선중복 제거
-   - 목록에서 신규 URL이 0건이면 해당 보드 조기 종료
+4. 목록 페이지를 순회하며 페이지별 상세 수집
+   - canonical URL 기준으로 보드 내 중복 상세 요청 제거
+   - 기존 URL은 상세 요청을 생략하되, 기존 `published_at`으로 일반공지 중단 여부 판단
 5. 상세 수집 시 최근성 정책 적용
    - 상시공지: 항상 포함
-   - 일반공지: 최근 365일만 포함, 기준 미충족 시 보드 상세 수집 중단
+   - 일반공지: 최근 365일만 포함, 기준 미충족 시 보드 수집 중단
 6. 기존+신규 데이터를 최종 병합
    - URL 중복 제거
    - 제목 정규화 중복 통합 및 `source_meta` 누적
@@ -51,6 +51,7 @@
 - `kau_official`
 - `kau_career`
 - `kau_college`
+- `kau_card_notice`
 - `kau_research`
 - `kau_admission`
 - `kau_ctl`
@@ -80,5 +81,6 @@
 - `REQUEST_TIMEOUT_SECONDS=15`
 - 요청 간 랜덤 지연(`REQUEST_DELAY_SECONDS=(0.5, 1.2)`)
 - robots 기본 준수 (`kau_career`만 예외)
-- `max_pages`에 `min_pages`(예: career 2페이지 보장)를 반영해 실제 순회 페이지 수 결정
+- `--max-pages 0`은 페이지 상한 없이 최근성 정책으로 자동 중단
+- `--max-pages N`은 보드별 최대 N페이지까지만 순회하며, `min_pages`가 있으면 더 큰 값을 사용
 - `max_posts`는 현재 상세 수집 상한으로 직접 사용되지 않으며, 일부 보드의 페이지 단위(`page_unit`) 설정에 활용

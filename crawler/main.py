@@ -21,19 +21,28 @@ def crawl_all_notices(max_pages: int, output_path: Path) -> tuple[list[dict], li
 
     try:
         existing_posts = load_existing_posts(output_path)
-        known_urls: set[str] = {
-            canonicalize_original_url(str(post.get("original_url") or ""))
-            for post in existing_posts
-            if post.get("original_url")
-        }
+        known_posts_by_url: dict[str, dict] = {}
+        for post in existing_posts:
+            original_url = canonicalize_original_url(str(post.get("original_url") or ""))
+            if original_url:
+                known_posts_by_url[original_url] = post
+
+            for meta in post.get("source_meta") or []:
+                if not isinstance(meta, dict):
+                    continue
+                meta_url = canonicalize_original_url(str(meta.get("original_url") or ""))
+                if meta_url:
+                    known_posts_by_url[meta_url] = meta
+
+        known_urls = set(known_posts_by_url)
 
         all_new_posts: list[dict] = []
         all_failed_items: list[dict] = []
 
         logger.info(
-            "공지 게시판 수집 시작: 게시판=%s, 페이지=%s, 기존보유URL=%s",
+            "공지 게시판 수집 시작: 게시판=%s, 페이지상한=%s, 기존보유URL=%s",
             len(NOTICE_BOARDS),
-            max_pages,
+            "자동" if max_pages <= 0 else max_pages,
             len(known_urls),
         )
 
@@ -50,6 +59,7 @@ def crawl_all_notices(max_pages: int, output_path: Path) -> tuple[list[dict], li
                 max_pages=max_pages,
                 adapter=adapter,
                 known_urls=known_urls,
+                known_posts_by_url=known_posts_by_url,
             )
             all_new_posts.extend(posts)
             all_failed_items.extend(failed_items)
@@ -90,7 +100,10 @@ def parse_args() -> argparse.Namespace:
         "--max-pages",
         type=int,
         default=DEFAULT_MAX_PAGES,
-        help=f"게시판별 수집할 목록 페이지 수 (기본값: {DEFAULT_MAX_PAGES})",
+        help=(
+            "게시판별 목록 페이지 상한. 0이면 페이지 상한 없이 최근성 정책으로 자동 중단 "
+            f"(기본값: {DEFAULT_MAX_PAGES})"
+        ),
     )
     parser.add_argument(
         "--output",

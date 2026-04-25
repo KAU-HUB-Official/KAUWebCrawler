@@ -10,7 +10,7 @@ class KAUCommunityPHPClient(BaseClient):
     """
     공통 PHP 게시판(mode=read&seq) 클라이언트.
 
-    fsc/grad/gradbus 계열 게시판에 사용한다.
+    fsc/grad/gradbus 및 학과 카드형 notice.php 게시판에 사용한다.
     """
 
     def __init__(self, *, base_url: str, notice_list_url: str) -> None:

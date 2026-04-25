@@ -21,11 +21,12 @@ Crawler/
 
 ## 현재 수집 범위
 
-현재 기본 설정(`NOTICE_BOARDS`) 기준 30개 게시판을 수집합니다.
+현재 기본 설정(`NOTICE_BOARDS`) 기준 69개 게시판을 수집합니다.
 
 - `kau.ac.kr` 공식 공지 7종
 - `career.kau.ac.kr` 대학일자리센터 공지 1종
-- `college.kau.ac.kr` 계열 공지 11종
+- `college.kau.ac.kr` 계열 공지 42종
+- `aisw.kau.ac.kr`, `ai.kau.ac.kr`, `sw.kau.ac.kr`, `ave.kau.ac.kr` 카드형 학과/대학 공지 8종
 - `research.kau.ac.kr` 산학협력단 공지 1종
 - `ibhak.kau.ac.kr` 입학처 공지 1종
 - `ctl.kau.ac.kr` 교수학습센터 공지 1종
@@ -40,20 +41,20 @@ Crawler/
 
 ## 핵심 동작
 
-- 목록은 `--max-pages` 범위에서 순회
+- 기본 실행은 페이지 상한 없이 순회하며, 최근성 정책으로 보드별 중단 시점을 결정
 - 목록 항목은 `url + is_permanent_notice`로 관리
 - 기존 결과 파일의 `original_url`을 캐시로 사용해 상세 요청 중복 방지
-- 목록 페이지에서 신규 URL이 0건이면 해당 보드 조기 종료
+- 이미 수집된 URL은 상세 요청을 생략하되, 기존 `published_at`으로 중단 여부 판단
 - 상시공지는 날짜와 무관하게 수집
 - 일반공지는 최근 1년(`RECENT_NOTICE_DAYS = 365`)만 수집
-- 일반공지에서 기준일 이전/같은 날짜 또는 게시일 미확인 항목을 만나면 해당 보드 상세 수집 중단
+- 일반공지는 상시공지 제외 목록에서 최신순이라는 전제로, 기준일 이전/같은 날짜 또는 게시일 미확인 항목을 만나면 해당 보드 수집 중단
 - 저장 전 URL 기준 1차, 제목 정규화 기준 2차 중복 제거
 
 ## 빠른 실행
 
 ```bash
 pip install requests beautifulsoup4
-python3 crawler/main.py --max-pages 1
+python3 crawler/main.py
 ```
 
 ## 기본 산출물

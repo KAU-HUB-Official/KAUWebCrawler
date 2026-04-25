@@ -105,11 +105,25 @@ def canonicalize_original_url(url: str) -> str:
             normalized_query = urlencode(compact_query)
             return urlunparse((scheme, netloc, path, "", normalized_query, ""))
 
-    # fsc/grad/gradbus 계열 공지 상세 URL:
+    # fsc/grad/gradbus/카드형 학과 계열 공지 상세 URL:
     #   /info/info_01.php?...&code=s1101&page=..&mode=read&seq=NNNN
     #   /community/notice_02.php?...&code=s1201&page=..&mode=read&seq=NNNN
     #   /community/notice_01.php?...&code=s1101&page=..&mode=read&seq=NNNN
-    if host in {"fsc.kau.ac.kr", "grad.kau.ac.kr", "gradbus.kau.ac.kr"} and path.endswith(".php"):
+    #   /pages/notice.php?...&code=s1201&page=..&mode=read&seq=NNNN
+    #   /pages/notice.php?...&code=s1401&page=..&mode=read&seq=NNNN
+    if host in {
+        "fsc.kau.ac.kr",
+        "grad.kau.ac.kr",
+        "gradbus.kau.ac.kr",
+        "aisw.kau.ac.kr",
+        "ai.kau.ac.kr:8100",
+        "ai.kau.ac.kr:8110",
+        "ai.kau.ac.kr:8120",
+        "ai.kau.ac.kr:8130",
+        "ai.kau.ac.kr:8140",
+        "sw.kau.ac.kr",
+        "ave.kau.ac.kr",
+    } and path.endswith(".php"):
         query = parse_qs(parsed.query, keep_blank_values=True)
         if "mode" in query and "seq" in query:
             compact_query: dict[str, str] = {}

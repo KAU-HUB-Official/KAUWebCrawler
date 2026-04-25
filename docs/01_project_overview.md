@@ -10,18 +10,19 @@
 
 - `kau.ac.kr` 공식 공지 7종
 - `career.kau.ac.kr` 대학일자리센터 공지 1종
-- `college.kau.ac.kr` 계열 공지 11종
+- `college.kau.ac.kr` 계열 공지 42종
+- `aisw.kau.ac.kr`, `ai.kau.ac.kr`, `sw.kau.ac.kr`, `ave.kau.ac.kr` 카드형 학과/대학 공지 8종
 - `research.kau.ac.kr` 산학협력단 공지 1종
 - `ibhak.kau.ac.kr` 입학처 공지 1종
 - `ctl.kau.ac.kr` 교수학습센터 공지 1종
 - `lib.kau.ac.kr` 학술정보관 공지 1종
 - `ftc.kau.ac.kr` 비행교육원 공지 1종
 - `amtc.kau.ac.kr` 항공기술교육원 공지 1종
-- `fsc.kau.ac.kr`, `grad.kau.ac.kr`, `gradbus.kau.ac.kr` 등 대학원 공지 3종
+- `fsc.kau.ac.kr`, `grad.kau.ac.kr`, `gradbus.kau.ac.kr` 공통 PHP 공지 3종
 - `lms.kau.ac.kr` LMS 공지 1종
 - `asbt.kau.ac.kr` 첨단분야 부트캠프사업단 공지 1종
 
-총 30개 보드를 기본 수집합니다.
+총 69개 보드를 기본 수집합니다.
 
 ## 수집 데이터 포맷
 

@@ -52,6 +52,24 @@
 - 첨부: `resultFile[*]` -> `/web/bbs/FileDownApi.gen?atchFileId=...&fileSn=...&mnuId=...`
 - 카테고리: 보드명 fallback 또는 `categoryCdNm`/`bbsNm`
 
+## 카드형 학과/대학 공지 (`kau_card_notice_parser.py`)
+
+### 목록
+
+- 요청 방식: `notice.php?code=...&page=...`
+- 대상: `aisw.kau.ac.kr`, `ai.kau.ac.kr:8100/8110/8120/8130/8140`, `sw.kau.ac.kr`, `ave.kau.ac.kr`
+- 항목 단위: `ul.list_01 > li`
+- 링크: `a[href*='mode=read'][href*='seq=']`
+- 상시공지 판정: 항목 클래스(`notice`, `emp`, `bo_notice`) 또는 제목의 공지 표기
+
+### 상세
+
+- 제목: `div.view_header h4`
+- 작성일: `div.view_header ul.view_info li`에서 날짜 패턴 추출
+- 본문: `div.view_conts`
+- 첨부: `div.attach a[href]`, `div.view_attatch a[href]`, `div.view_file a[href]`
+- 카테고리: `ul.location li` 마지막 항목 또는 보드명 fallback
+
 ## 교수학습센터 (`kau_ctl_parser.py`)
 
 ### 목록
@@ -200,6 +218,7 @@
 
 - 모든 상대 링크는 `urljoin()`으로 절대 URL 변환
 - 본문 텍스트가 비어 있으면 이미지 수/alt 기반 fallback 문자열 생성
+- 상세 파싱 후 본문이 비어 있고 첨부파일이 있으면 첨부파일명 기반 fallback 문자열 생성
 - 첨부 URL은 URL 기준으로 중복 제거
 
 ## URL 정규화(`services/url_normalizer.py`)
@@ -212,6 +231,7 @@
 - `lib.kau.ac.kr`: `sb_no`만 유지
 - `ftc.kau.ac.kr`: `code`, `mode`, `seq`만 유지
 - `fsc/grad/gradbus.kau.ac.kr`: `code`, `mode`, `seq`만 유지
+- 카드형 학과/대학 계열(`aisw`, `ai`, `sw`, `ave`): `code`, `mode`, `seq`만 유지
 - `ibhak.kau.ac.kr`: `p_board_id`, `p_board_idx`만 유지
 - `amtc.kau.ac.kr`: `bo_table`, `wr_id`만 유지
 - `lms.kau.ac.kr`: `id`, `bwid`만 유지

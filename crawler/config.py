@@ -26,6 +26,8 @@ GRAD_BASE_URL = "https://grad.kau.ac.kr"
 GRAD_NOTICE_LIST_URL = "https://grad.kau.ac.kr/community/notice_02.php"
 GRADBUS_BASE_URL = "http://gradbus.kau.ac.kr"
 GRADBUS_NOTICE_LIST_URL = "http://gradbus.kau.ac.kr/community/notice_01.php"
+AISW_BASE_URL = "http://aisw.kau.ac.kr"
+AISW_NOTICE_LIST_URL = "http://aisw.kau.ac.kr/pages/notice.php"
 LMS_BASE_URL = "https://lms.kau.ac.kr"
 LMS_NOTICE_LIST_URL = "https://lms.kau.ac.kr/mod/ubboard/view.php?id=55398"
 ESLSCAT_BASE_URL = "https://www.eslscat.com"
@@ -73,10 +75,20 @@ GRADBUS_SOURCE_NAME = "한국항공대학교 경영대학원"
 GRADBUS_SOURCE_TYPE = "university_graduate_business_notice"
 POLICY_GRAD_SOURCE_NAME = "한국항공대학교 항공우주정책대학원"
 POLICY_GRAD_SOURCE_TYPE = "university_policy_graduate_notice"
+ENGINEERING_COLLEGE_SOURCE_NAME = "한국항공대학교 공과대학"
+ENGINEERING_COLLEGE_SOURCE_TYPE = "university_engineering_college_notice"
+AISW_COLLEGE_SOURCE_NAME = "한국항공대학교 AI융합대학"
+AISW_COLLEGE_SOURCE_TYPE = "university_aisw_college_notice"
+AVIATION_MANAGEMENT_COLLEGE_SOURCE_NAME = "한국항공대학교 항공·경영대학"
+AVIATION_MANAGEMENT_COLLEGE_SOURCE_TYPE = "university_aviation_management_college_notice"
+FREE_MAJOR_SOURCE_NAME = "한국항공대학교 자유전공학부"
+FREE_MAJOR_SOURCE_TYPE = "university_free_major_notice"
+HUMANITIES_NATURAL_SOURCE_NAME = "한국항공대학교 인문자연학부"
+HUMANITIES_NATURAL_SOURCE_TYPE = "university_humanities_natural_notice"
 MATERIALS_GRAD_SOURCE_NAME = "한국항공대학교 신소재공학과 대학원"
 MATERIALS_GRAD_SOURCE_TYPE = "university_materials_graduate_notice"
-EIE_GRAD_SOURCE_NAME = "한국항공대학교 항공전자정보공학부 대학원"
-EIE_GRAD_SOURCE_TYPE = "university_eie_graduate_notice"
+MATERIALS_JOB_SOURCE_NAME = "한국항공대학교 신소재공학과 취업공지"
+MATERIALS_JOB_SOURCE_TYPE = "university_materials_job_notice"
 LMS_SOURCE_NAME = "한국항공대학교 LMS 공지사항"
 LMS_SOURCE_TYPE = "university_lms_notice"
 ESLSCAT_SOURCE_NAME = "한국항공대학교 토익 사이버 강좌"
@@ -91,9 +103,64 @@ REQUEST_TIMEOUT_SECONDS = 15
 REQUEST_DELAY_SECONDS = (0.5, 1.2)
 VERIFY_SSL = True
 
-DEFAULT_MAX_PAGES = 1
+DEFAULT_MAX_PAGES = 0
 DEFAULT_POSTS_PER_BOARD = 20
 RECENT_NOTICE_DAYS = 365
+
+
+def _source_name(label: str) -> str:
+    return f"한국항공대학교 {label}"
+
+
+def _source_type(key: str) -> str:
+    return f"university_{key}"
+
+
+def _college_notice_board(
+    *,
+    key: str,
+    label: str,
+    list_url: str,
+    site_flag: str,
+    bbs_id: str,
+    mnu_id: str,
+) -> dict:
+    return {
+        "key": key,
+        "name": f"{label} 공지사항",
+        "board_type": "kau_college",
+        "list_url": list_url,
+        "site_flag": site_flag,
+        "bbs_id": bbs_id,
+        "mnu_id": mnu_id,
+        "bbs_auth": "30",
+        "page_unit": DEFAULT_POSTS_PER_BOARD,
+        "max_posts": DEFAULT_POSTS_PER_BOARD,
+        "source_name": _source_name(label),
+        "source_type": _source_type(key),
+    }
+
+
+def _card_notice_board(
+    *,
+    key: str,
+    label: str,
+    list_url: str,
+    base_url: str,
+    code: str,
+) -> dict:
+    return {
+        "key": key,
+        "name": f"{label} 공지사항",
+        "board_type": "kau_card_notice",
+        "list_url": list_url,
+        "base_url": base_url,
+        "code": code,
+        "max_posts": DEFAULT_POSTS_PER_BOARD,
+        "source_name": _source_name(label),
+        "source_type": _source_type(key),
+    }
+
 
 NOTICE_BOARDS = [
     {
@@ -190,6 +257,338 @@ NOTICE_BOARDS = [
         "source_name": COLLEGE_SOURCE_NAME,
         "source_type": COLLEGE_SOURCE_TYPE,
     },
+    {
+        "key": "engineering_college_notice",
+        "name": "공과대학 공지사항",
+        "board_type": "kau_college",
+        "list_url": "http://college.kau.ac.kr/web/pages/gc17891b.do",
+        "site_flag": "engineer_col",
+        "bbs_id": "0369",
+        "mnu_id": "gc17891b",
+        "bbs_auth": "30",
+        "page_unit": DEFAULT_POSTS_PER_BOARD,
+        "max_posts": DEFAULT_POSTS_PER_BOARD,
+        "source_name": ENGINEERING_COLLEGE_SOURCE_NAME,
+        "source_type": ENGINEERING_COLLEGE_SOURCE_TYPE,
+    },
+    {
+        "key": "aisw_college_notice",
+        "name": "AI융합대학 공지사항",
+        "board_type": "kau_card_notice",
+        "list_url": AISW_NOTICE_LIST_URL,
+        "base_url": AISW_BASE_URL,
+        "code": "s1201",
+        "max_posts": DEFAULT_POSTS_PER_BOARD,
+        "source_name": AISW_COLLEGE_SOURCE_NAME,
+        "source_type": AISW_COLLEGE_SOURCE_TYPE,
+    },
+    {
+        "key": "aviation_management_college_notice",
+        "name": "항공·경영대학 공지사항",
+        "board_type": "kau_college",
+        "list_url": "http://college.kau.ac.kr/web/pages/gc306b.do",
+        "site_flag": "avimanagement_col",
+        "bbs_id": "0372",
+        "mnu_id": "gc306b",
+        "bbs_auth": "30",
+        "page_unit": DEFAULT_POSTS_PER_BOARD,
+        "max_posts": DEFAULT_POSTS_PER_BOARD,
+        "source_name": AVIATION_MANAGEMENT_COLLEGE_SOURCE_NAME,
+        "source_type": AVIATION_MANAGEMENT_COLLEGE_SOURCE_TYPE,
+    },
+    {
+        "key": "free_major_notice",
+        "name": "자유전공학부 공지사항",
+        "board_type": "kau_college",
+        "list_url": "http://college.kau.ac.kr/web/pages/gc46051b.do",
+        "site_flag": "free_www",
+        "bbs_id": "0072",
+        "mnu_id": "gc46051b",
+        "bbs_auth": "30",
+        "page_unit": DEFAULT_POSTS_PER_BOARD,
+        "max_posts": DEFAULT_POSTS_PER_BOARD,
+        "source_name": FREE_MAJOR_SOURCE_NAME,
+        "source_type": FREE_MAJOR_SOURCE_TYPE,
+    },
+    {
+        "key": "humanities_natural_notice",
+        "name": "인문자연학부 공지사항",
+        "board_type": "kau_college",
+        "list_url": "http://college.kau.ac.kr/web/pages/gc87634b.do",
+        "site_flag": "ct_www",
+        "bbs_id": "0088",
+        "mnu_id": "gc87634b",
+        "bbs_auth": "30",
+        "page_unit": DEFAULT_POSTS_PER_BOARD,
+        "max_posts": DEFAULT_POSTS_PER_BOARD,
+        "source_name": HUMANITIES_NATURAL_SOURCE_NAME,
+        "source_type": HUMANITIES_NATURAL_SOURCE_TYPE,
+    },
+    _college_notice_board(
+        key="aeronautics_major_notice",
+        label="항공공학전공",
+        list_url="http://college.kau.ac.kr/web/pages/gc99647b.do",
+        site_flag="new_major_aeronautics",
+        bbs_id="0395",
+        mnu_id="gc99647b",
+    ),
+    _college_notice_board(
+        key="mechanical_engineering_major_notice",
+        label="기계공학전공",
+        list_url="http://college.kau.ac.kr/web/pages/gc5953b.do",
+        site_flag="new_major_mech",
+        bbs_id="0392",
+        mnu_id="gc5953b",
+    ),
+    _college_notice_board(
+        key="aviation_mro_major_notice",
+        label="항공MRO전공",
+        list_url="http://college.kau.ac.kr/web/pages/gc46188b.do",
+        site_flag="new_major_amem",
+        bbs_id="0389",
+        mnu_id="gc46188b",
+    ),
+    _college_notice_board(
+        key="space_engineering_major_notice",
+        label="우주공학전공",
+        list_url="http://college.kau.ac.kr/web/pages/gc41675b.do",
+        site_flag="spc_www",
+        bbs_id="0421",
+        mnu_id="gc41675b",
+    ),
+    _college_notice_board(
+        key="aerospace_engineering_department_notice",
+        label="항공우주공학과",
+        list_url="http://college.kau.ac.kr/web/pages/gc64016b.do",
+        site_flag="ade_www",
+        bbs_id="0323",
+        mnu_id="gc64016b",
+    ),
+    _college_notice_board(
+        key="mechanical_aerospace_engineering_department_notice",
+        label="기계항공공학과",
+        list_url="http://college.kau.ac.kr/web/pages/gc30562b.do",
+        site_flag="mae_www",
+        bbs_id="0283",
+        mnu_id="gc30562b",
+    ),
+    _college_notice_board(
+        key="materials_undergrad_notice",
+        label="신소재공학과 학부",
+        list_url="http://college.kau.ac.kr/web/pages/gc46806b.do",
+        site_flag="materials_www",
+        bbs_id="0096",
+        mnu_id="gc46806b",
+    ),
+    _college_notice_board(
+        key="aerospace_mechanical_engineering_division_notice",
+        label="항공우주및기계공학부",
+        list_url="http://college.kau.ac.kr/web/pages/gc1986b.do",
+        site_flag="am_www",
+        bbs_id="0024",
+        mnu_id="gc1986b",
+    ),
+    _college_notice_board(
+        key="space_aerospace_materials_major_notice",
+        label="우주항공신소재전공",
+        list_url="http://college.kau.ac.kr/web/pages/gc49194b.do",
+        site_flag="new_major_aam",
+        bbs_id="0402",
+        mnu_id="gc49194b",
+    ),
+    _college_notice_board(
+        key="semiconductor_materials_major_notice",
+        label="반도체신소재전공",
+        list_url="http://college.kau.ac.kr/web/pages/gc55157b.do",
+        site_flag="mic_www",
+        bbs_id="0423",
+        mnu_id="gc55157b",
+    ),
+    _college_notice_board(
+        key="smart_drone_engineering_department_notice",
+        label="스마트드론공학과",
+        list_url="http://college.kau.ac.kr/web/pages/gc13106b.do",
+        site_flag="smartdrone_www",
+        bbs_id="0101",
+        mnu_id="gc13106b",
+    ),
+    _card_notice_board(
+        key="ai_major_notice",
+        label="인공지능전공",
+        list_url="http://ai.kau.ac.kr:8100/pages/notice.php",
+        base_url="http://ai.kau.ac.kr:8100",
+        code="s1401",
+    ),
+    _college_notice_board(
+        key="engineering_convergence_major_notice",
+        label="공과대학 융합전공",
+        list_url="http://college.kau.ac.kr/web/pages/gc33372b.do",
+        site_flag="sme_www",
+        bbs_id="0127",
+        mnu_id="gc33372b",
+    ),
+    _card_notice_board(
+        key="semiconductor_system_major_notice",
+        label="반도체시스템전공",
+        list_url="http://ai.kau.ac.kr:8130/pages/notice.php",
+        base_url="http://ai.kau.ac.kr:8130",
+        code="s1401",
+    ),
+    _card_notice_board(
+        key="computer_engineering_major_notice",
+        label="컴퓨터공학전공",
+        list_url="http://ai.kau.ac.kr:8110/pages/notice.php",
+        base_url="http://ai.kau.ac.kr:8110",
+        code="s1401",
+    ),
+    _card_notice_board(
+        key="electronics_aerospace_electronics_major_notice",
+        label="전자및항공전자전공",
+        list_url="http://ai.kau.ac.kr:8120/pages/notice.php",
+        base_url="http://ai.kau.ac.kr:8120",
+        code="s1401",
+    ),
+    _card_notice_board(
+        key="ai_convergence_ict_major_notice",
+        label="AI융합ICT전공",
+        list_url="http://ai.kau.ac.kr:8140/pages/notice.php",
+        base_url="http://ai.kau.ac.kr:8140",
+        code="s1401",
+    ),
+    _college_notice_board(
+        key="electrical_electronics_engineering_department_notice",
+        label="전기전자공학과",
+        list_url="http://college.kau.ac.kr/web/pages/gc84580b.do",
+        site_flag="eee_www",
+        bbs_id="0324",
+        mnu_id="gc84580b",
+    ),
+    _card_notice_board(
+        key="software_department_notice",
+        label="소프트웨어학과",
+        list_url="http://sw.kau.ac.kr/pages/notice.php",
+        base_url="http://sw.kau.ac.kr",
+        code="s1401",
+    ),
+    _college_notice_board(
+        key="eie_notice",
+        label="항공전자정보공학부",
+        list_url="http://college.kau.ac.kr/web/pages/gc23761b.do",
+        site_flag="eie_www",
+        bbs_id="0015",
+        mnu_id="gc23761b",
+    ),
+    _card_notice_board(
+        key="ai_autonomous_vehicle_system_department_notice",
+        label="AI자율주행시스템공학과",
+        list_url="http://ave.kau.ac.kr/pages/notice.php",
+        base_url="http://ave.kau.ac.kr",
+        code="s1401",
+    ),
+    _college_notice_board(
+        key="computer_engineering_department_notice",
+        label="컴퓨터공학과",
+        list_url="http://college.kau.ac.kr/web/pages/gc34907b.do",
+        site_flag="dcs_www",
+        bbs_id="0319",
+        mnu_id="gc34907b",
+    ),
+    _college_notice_board(
+        key="aisw_convergence_major_notice",
+        label="AI융합대학 융합전공",
+        list_url="http://college.kau.ac.kr/web/pages/gc29417b.do",
+        site_flag="ai_www",
+        bbs_id="0117",
+        mnu_id="gc29417b",
+    ),
+    _college_notice_board(
+        key="logistics_major_notice",
+        label="물류전공",
+        list_url="http://college.kau.ac.kr/web/pages/gc10416b.do",
+        site_flag="new_major_logist",
+        bbs_id="0386",
+        mnu_id="gc10416b",
+    ),
+    _college_notice_board(
+        key="air_traffic_major_notice",
+        label="항공교통전공",
+        list_url="http://college.kau.ac.kr/web/pages/gc51246b.do",
+        site_flag="new_major_atm",
+        bbs_id="0383",
+        mnu_id="gc51246b",
+    ),
+    _college_notice_board(
+        key="aviation_management_major_notice",
+        label="항공경영전공",
+        list_url="http://college.kau.ac.kr/web/pages/gc34408b.do",
+        site_flag="new_major_avm",
+        bbs_id="0399",
+        mnu_id="gc34408b",
+    ),
+    _college_notice_board(
+        key="business_administration_major_notice",
+        label="경영전공",
+        list_url="http://college.kau.ac.kr/web/pages/gc19393b.do",
+        site_flag="new_major_bam",
+        bbs_id="0378",
+        mnu_id="gc19393b",
+    ),
+    _college_notice_board(
+        key="flight_operation_department_notice",
+        label="항공운항학과",
+        list_url="http://college.kau.ac.kr/web/pages/gc61682b.do",
+        site_flag="hw_www",
+        bbs_id="0003",
+        mnu_id="gc61682b",
+    ),
+    _college_notice_board(
+        key="international_exchange_division_notice",
+        label="국제교류학부",
+        list_url="http://college.kau.ac.kr/web/pages/gc14416b.do",
+        site_flag="diekor_www",
+        bbs_id="0356",
+        mnu_id="gc14416b",
+    ),
+    _college_notice_board(
+        key="air_transport_logistics_division_notice",
+        label="항공교통물류학부",
+        list_url="http://college.kau.ac.kr/web/pages/gc93464b.do",
+        site_flag="attll_www",
+        bbs_id="0048",
+        mnu_id="gc93464b",
+    ),
+    _college_notice_board(
+        key="business_administration_department_notice",
+        label="경영학과",
+        list_url="http://college.kau.ac.kr/web/pages/gc99805b.do",
+        site_flag="dba_www",
+        bbs_id="0320",
+        mnu_id="gc99805b",
+    ),
+    _college_notice_board(
+        key="business_administration_division_notice",
+        label="경영학부",
+        list_url="http://college.kau.ac.kr/web/pages/gc25685b.do",
+        site_flag="biz_www",
+        bbs_id="0056",
+        mnu_id="gc25685b",
+    ),
+    _college_notice_board(
+        key="aviation_management_college_convergence_major_notice",
+        label="항공경영대학융합전공",
+        list_url="http://college.kau.ac.kr/web/pages/gc60453b.do",
+        site_flag="samc_www",
+        bbs_id="0124",
+        mnu_id="gc60453b",
+    ),
+    _college_notice_board(
+        key="aviation_business_department_notice",
+        label="항공경영학과",
+        list_url="http://college.kau.ac.kr/web/pages/gc84986b.do",
+        site_flag="dam_www",
+        bbs_id="0322",
+        mnu_id="gc84986b",
+    ),
     {
         "key": "college_gc24251_notice",
         "name": "드림칼리지디자인 공지사항",
@@ -373,18 +772,18 @@ NOTICE_BOARDS = [
         "source_type": MATERIALS_GRAD_SOURCE_TYPE,
     },
     {
-        "key": "eie_grad_notice",
-        "name": "항공전자정보공학부 대학원 공지사항",
+        "key": "materials_job_notice",
+        "name": "신소재공학과 취업공지",
         "board_type": "kau_college",
-        "list_url": "http://college.kau.ac.kr/web/pages/gc23761b.do",
-        "site_flag": "eie_www",
-        "bbs_id": "0015",
-        "mnu_id": "gc23761b",
+        "list_url": "http://college.kau.ac.kr/web/pages/gc34619b.do",
+        "site_flag": "materials_www",
+        "bbs_id": "0098",
+        "mnu_id": "gc34619b",
         "bbs_auth": "30",
         "page_unit": DEFAULT_POSTS_PER_BOARD,
         "max_posts": DEFAULT_POSTS_PER_BOARD,
-        "source_name": EIE_GRAD_SOURCE_NAME,
-        "source_type": EIE_GRAD_SOURCE_TYPE,
+        "source_name": MATERIALS_JOB_SOURCE_NAME,
+        "source_type": MATERIALS_JOB_SOURCE_TYPE,
     },
     {
         "key": "amtc_notice",

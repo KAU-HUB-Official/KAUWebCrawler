@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Callable
 
+from models.post import Post
 from parsers.base_parser import BaseParser
 from policies.notice_policy import evaluate_recent_policy
 from services.url_normalizer import canonicalize_original_url
@@ -47,19 +48,6 @@ def _normalize_page_items(raw_items: list[dict], *, page: int) -> list[dict]:
     return normalized_items
 
 
-def _select_new_items(page_items: list[dict], *, seen_urls: set[str]) -> list[dict]:
-    new_items: list[dict] = []
-
-    for item in page_items:
-        detail_url = str(item.get("url") or "")
-        if not detail_url or detail_url in seen_urls:
-            continue
-        seen_urls.add(detail_url)
-        new_items.append(item)
-
-    return new_items
-
-
 def _dedup_items(items: list[dict]) -> list[dict]:
     deduped: list[dict] = []
     seen_urls: set[str] = set()
@@ -74,17 +62,151 @@ def _dedup_items(items: list[dict]) -> list[dict]:
     return deduped
 
 
-def _resolve_effective_max_pages(
+def _resolve_page_limit(
     board: dict[str, Any],
     *,
     max_pages: int,
     adapter: BoardAdapter,
-) -> int:
-    effective_max_pages = max_pages
+) -> int | None:
+    if max_pages <= 0:
+        return None
+
+    page_limit = max_pages
     if adapter.min_pages_field:
         min_pages = max(1, int(board.get(adapter.min_pages_field, 1)))
-        effective_max_pages = max(effective_max_pages, min_pages)
-    return effective_max_pages
+        page_limit = max(page_limit, min_pages)
+    return page_limit
+
+
+def _fill_missing_content_from_attachments(post: Post) -> None:
+    if post.content or not post.attachments:
+        return
+
+    labels: list[str] = []
+    seen_labels: set[str] = set()
+
+    for attachment in post.attachments:
+        if not isinstance(attachment, dict):
+            continue
+
+        label = str(attachment.get("name") or attachment.get("url") or "").strip()
+        if not label or label in seen_labels:
+            continue
+
+        seen_labels.add(label)
+        labels.append(label)
+
+    if labels:
+        post.content = "[첨부파일 공지]\n" + "\n".join(f"- {label}" for label in labels)
+
+
+def _evaluate_known_item_policy(
+    board: dict[str, Any],
+    detail_item: dict,
+    *,
+    known_posts_by_url: dict[str, dict],
+) -> bool:
+    if bool(detail_item.get("is_permanent_notice")):
+        return False
+
+    detail_url = str(detail_item.get("url") or "")
+    known_post = known_posts_by_url.get(detail_url)
+    if not known_post:
+        return False
+
+    decision = evaluate_recent_policy(
+        board_name=board["name"],
+        detail_url=detail_url,
+        source_page=int(detail_item.get("page") or 1),
+        is_permanent_notice=False,
+        published_at=str(known_post.get("published_at") or ""),
+    )
+    return decision.stop_crawling
+
+
+def _parse_detail_item(
+    board: dict[str, Any],
+    detail_item: dict,
+    *,
+    adapter: BoardAdapter,
+    parser: BaseParser,
+    known_urls: set[str],
+    known_posts_by_url: dict[str, dict],
+    failed_items: list[dict],
+) -> tuple[dict | None, bool]:
+    detail_url = str(detail_item["url"])
+    source_page = int(detail_item["page"])
+    is_permanent_notice = bool(detail_item["is_permanent_notice"])
+
+    if (
+        adapter.check_robots_on_detail
+        and adapter.can_fetch is not None
+        and not adapter.can_fetch(detail_url)
+    ):
+        failed_items.append(
+            {
+                "board": board["name"],
+                "url": detail_url,
+                "reason": "robots_disallowed",
+            }
+        )
+        logger.warning("[%s] robots.txt 차단으로 상세 스킵: %s", board["name"], detail_url)
+        return None, False
+
+    fetch_result = adapter.fetch_detail(board, detail_url)
+    if not fetch_result.html:
+        if fetch_result.failure_reason == "missing_ntt_id":
+            logger.warning("[%s] 상세 URL에 nttId 누락: %s", board["name"], detail_url)
+        elif fetch_result.failure_reason == "missing_notice_id":
+            logger.warning("[%s] 상세 URL에 notice id 누락: %s", board["name"], detail_url)
+        failed_items.append(
+            {
+                "board": board["name"],
+                "url": detail_url,
+                "reason": fetch_result.failure_reason,
+            }
+        )
+        return None, False
+
+    try:
+        post = parser.parse_post(fetch_result.html, detail_url)
+        post.original_url = canonicalize_original_url(post.original_url)
+        _fill_missing_content_from_attachments(post)
+        if not post.title or not post.content:
+            failed_items.append(
+                {
+                    "board": board["name"],
+                    "url": detail_url,
+                    "reason": "required_field_empty",
+                }
+            )
+            logger.warning("[%s] 필수 필드 누락으로 스킵: %s", board["name"], detail_url)
+            return None, False
+
+        decision = evaluate_recent_policy(
+            board_name=board["name"],
+            detail_url=detail_url,
+            source_page=source_page,
+            is_permanent_notice=is_permanent_notice,
+            published_at=post.published_at,
+        )
+        if not decision.include_post:
+            return None, decision.stop_crawling
+
+        post_dict = post.to_dict()
+        known_urls.add(post.original_url)
+        known_posts_by_url[post.original_url] = post_dict
+        return post_dict, False
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("[%s] 상세 파싱 실패: %s", board["name"], detail_url)
+        failed_items.append(
+            {
+                "board": board["name"],
+                "url": detail_url,
+                "reason": f"parse_error:{exc.__class__.__name__}",
+            }
+        )
+        return None, False
 
 
 def crawl_board(
@@ -93,15 +215,19 @@ def crawl_board(
     max_pages: int,
     adapter: BoardAdapter,
     known_urls: set[str],
+    known_posts_by_url: dict[str, dict] | None = None,
 ) -> tuple[list[dict], list[dict]]:
     parser = adapter.parser_factory(board)
 
     failed_items: list[dict] = []
-    detail_items: list[dict] = []
+    posts: list[dict] = []
+    known_posts = known_posts_by_url if known_posts_by_url is not None else {}
     seen_for_board: set[str] = set(known_urls)
-    effective_max_pages = _resolve_effective_max_pages(board, max_pages=max_pages, adapter=adapter)
+    seen_page_signatures: set[tuple[str, ...]] = set()
+    page_limit = _resolve_page_limit(board, max_pages=max_pages, adapter=adapter)
 
-    for page in range(1, effective_max_pages + 1):
+    page = 1
+    while page_limit is None or page <= page_limit:
         page_url = adapter.build_list_page_url(board, page)
 
         if (
@@ -129,10 +255,24 @@ def crawl_board(
                 page,
                 page_url,
             )
-            continue
+            break
 
         page_items = _normalize_page_items(parser.parse_post_items(html, page_url), page=page)
-        new_page_items = _select_new_items(page_items, seen_urls=seen_for_board)
+        if not page_items:
+            logger.info("[%s] 목록 항목 없음, page=%s에서 페이지 순회 종료", board["name"], page)
+            break
+
+        page_signature = tuple(str(item.get("url") or "") for item in page_items)
+        if page_signature in seen_page_signatures:
+            logger.info("[%s] 반복 목록 감지, page=%s에서 페이지 순회 종료", board["name"], page)
+            break
+        seen_page_signatures.add(page_signature)
+
+        new_page_items = [
+            item
+            for item in page_items
+            if str(item.get("url") or "") not in seen_for_board
+        ]
 
         logger.info(
             "[%s] 목록 파싱 완료: page=%s, collected=%s, new=%s",
@@ -141,112 +281,70 @@ def crawl_board(
             len(page_items),
             len(new_page_items),
         )
-        detail_items.extend(new_page_items)
 
-        # 목록이 최신순이라는 전제에서, 이미 알고 있는 URL만 나오면 이후 페이지도 중복일 가능성이 높다.
-        if not new_page_items:
-            logger.info("[%s] 신규 URL 없음, page=%s에서 목록 순회 조기 종료", board["name"], page)
-            break
-
-    detail_items = _dedup_items(detail_items)
-    permanent_items = [item for item in detail_items if bool(item.get("is_permanent_notice"))]
-    general_items = [item for item in detail_items if not bool(item.get("is_permanent_notice"))]
-    ordered_detail_items = permanent_items + general_items
-    logger.info(
-        "[%s] 중복 제거 후 상세 URL 수: total=%s (permanent=%s, general=%s)",
-        board["name"],
-        len(ordered_detail_items),
-        len(permanent_items),
-        len(general_items),
-    )
-
-    posts: list[dict] = []
-
-    for idx, detail_item in enumerate(ordered_detail_items, start=1):
-        detail_url = str(detail_item["url"])
-        source_page = int(detail_item["page"])
-        is_permanent_notice = bool(detail_item["is_permanent_notice"])
+        permanent_items = [item for item in page_items if bool(item.get("is_permanent_notice"))]
+        general_items = [item for item in page_items if not bool(item.get("is_permanent_notice"))]
+        ordered_page_items = _dedup_items(permanent_items + general_items)
 
         logger.info(
-            "[%s] 상세 수집 중 (%s/%s): %s",
+            "[%s] page=%s 상세 대상: total=%s (permanent=%s, general=%s)",
             board["name"],
-            idx,
-            len(ordered_detail_items),
-            detail_url,
+            page,
+            len(ordered_page_items),
+            len(permanent_items),
+            len(general_items),
         )
 
-        if (
-            adapter.check_robots_on_detail
-            and adapter.can_fetch is not None
-            and not adapter.can_fetch(detail_url)
-        ):
-            failed_items.append(
-                {
-                    "board": board["name"],
-                    "url": detail_url,
-                    "reason": "robots_disallowed",
-                }
-            )
-            logger.warning("[%s] robots.txt 차단으로 상세 스킵: %s", board["name"], detail_url)
-            continue
+        stop_board = False
+        for idx, detail_item in enumerate(ordered_page_items, start=1):
+            detail_url = str(detail_item["url"])
 
-        fetch_result = adapter.fetch_detail(board, detail_url)
-        if not fetch_result.html:
-            if fetch_result.failure_reason == "missing_ntt_id":
-                logger.warning("[%s] 상세 URL에 nttId 누락: %s", board["name"], detail_url)
-            elif fetch_result.failure_reason == "missing_notice_id":
-                logger.warning("[%s] 상세 URL에 notice id 누락: %s", board["name"], detail_url)
-            failed_items.append(
-                {
-                    "board": board["name"],
-                    "url": detail_url,
-                    "reason": fetch_result.failure_reason,
-                }
-            )
-            continue
-
-        try:
-            post = parser.parse_post(fetch_result.html, detail_url)
-            post.original_url = canonicalize_original_url(post.original_url)
-            if not post.title or not post.content:
-                failed_items.append(
-                    {
-                        "board": board["name"],
-                        "url": detail_url,
-                        "reason": "required_field_empty",
-                    }
-                )
-                logger.warning("[%s] 필수 필드 누락으로 스킵: %s", board["name"], detail_url)
-                continue
-
-            decision = evaluate_recent_policy(
-                board_name=board["name"],
-                detail_url=detail_url,
-                source_page=source_page,
-                is_permanent_notice=is_permanent_notice,
-                published_at=post.published_at,
-            )
-            if not decision.include_post:
-                if decision.stop_crawling:
+            if detail_url in seen_for_board:
+                if _evaluate_known_item_policy(board, detail_item, known_posts_by_url=known_posts):
                     logger.info(
-                        "[%s] 정책에 따라 상세 수집 중단: page=%s, url=%s",
+                        "[%s] 기존 수집 일반공지의 최근성 기준 초과로 page=%s에서 보드 수집 중단: %s",
                         board["name"],
-                        source_page,
+                        page,
                         detail_url,
                     )
+                    stop_board = True
                     break
                 continue
 
-            posts.append(post.to_dict())
-            known_urls.add(post.original_url)
-        except Exception as exc:  # noqa: BLE001
-            logger.exception("[%s] 상세 파싱 실패: %s", board["name"], detail_url)
-            failed_items.append(
-                {
-                    "board": board["name"],
-                    "url": detail_url,
-                    "reason": f"parse_error:{exc.__class__.__name__}",
-                }
+            logger.info(
+                "[%s] 상세 수집 중 (page=%s, %s/%s): %s",
+                board["name"],
+                page,
+                idx,
+                len(ordered_page_items),
+                detail_url,
             )
+
+            seen_for_board.add(detail_url)
+            post, should_stop = _parse_detail_item(
+                board,
+                detail_item,
+                adapter=adapter,
+                parser=parser,
+                known_urls=known_urls,
+                known_posts_by_url=known_posts,
+                failed_items=failed_items,
+            )
+            if post:
+                posts.append(post)
+            if should_stop:
+                logger.info(
+                    "[%s] 정책에 따라 page=%s에서 보드 수집 중단: %s",
+                    board["name"],
+                    page,
+                    detail_url,
+                )
+                stop_board = True
+                break
+
+        if stop_board:
+            break
+
+        page += 1
 
     return posts, failed_items

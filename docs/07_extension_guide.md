@@ -9,7 +9,7 @@
 1. `crawler/config.py`의 `NOTICE_BOARDS`에 신규 항목 추가
 2. `key`, `name`, `board_type`, `list_url`, `source_name`, `source_type` 설정
 3. board_type별 필수 필드(`code`, `bbs_id`, `bo_table` 등) 설정
-4. `python3 crawler/main.py --max-pages 1`로 결과/실패 로그 확인
+4. 구조 점검은 `python3 crawler/main.py --max-pages 1`, 실제 수집은 `python3 crawler/main.py`로 결과/실패 로그 확인
 
 ## 2) 신규 사이트(신규 board_type) 추가
 
@@ -26,6 +26,7 @@
 - `kau_official`: 공식홈 `mode=read&seq` 계열
 - `kau_career`: 대학일자리센터 목록/상세
 - `kau_college`: college JSON API(`bbsListApi`, `bbsViewApi`)
+- `kau_card_notice`: AI융합대학/학과 `notice.php` 카드형 목록/상세
 - `kau_research`: research `mode=read&seq` 계열
 - `kau_admission`: 입학처 `viewBoardProcess` 계열
 - `kau_ctl`: ctl `mode=read&seq` 계열
