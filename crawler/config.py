@@ -73,6 +73,10 @@ GRADBUS_SOURCE_NAME = "한국항공대학교 경영대학원"
 GRADBUS_SOURCE_TYPE = "university_graduate_business_notice"
 POLICY_GRAD_SOURCE_NAME = "한국항공대학교 항공우주정책대학원"
 POLICY_GRAD_SOURCE_TYPE = "university_policy_graduate_notice"
+MATERIALS_GRAD_SOURCE_NAME = "한국항공대학교 신소재공학과 대학원"
+MATERIALS_GRAD_SOURCE_TYPE = "university_materials_graduate_notice"
+EIE_GRAD_SOURCE_NAME = "한국항공대학교 항공전자정보공학부 대학원"
+EIE_GRAD_SOURCE_TYPE = "university_eie_graduate_notice"
 LMS_SOURCE_NAME = "한국항공대학교 LMS 공지사항"
 LMS_SOURCE_TYPE = "university_lms_notice"
 ESLSCAT_SOURCE_NAME = "한국항공대학교 토익 사이버 강좌"
@@ -353,6 +357,34 @@ NOTICE_BOARDS = [
         "max_posts": DEFAULT_POSTS_PER_BOARD,
         "source_name": POLICY_GRAD_SOURCE_NAME,
         "source_type": POLICY_GRAD_SOURCE_TYPE,
+    },
+    {
+        "key": "materials_grad_notice",
+        "name": "신소재공학과 대학원 공지사항",
+        "board_type": "kau_college",
+        "list_url": "http://college.kau.ac.kr/web/pages/gc74927b.do",
+        "site_flag": "materials_www",
+        "bbs_id": "0097",
+        "mnu_id": "gc74927b",
+        "bbs_auth": "30",
+        "page_unit": DEFAULT_POSTS_PER_BOARD,
+        "max_posts": DEFAULT_POSTS_PER_BOARD,
+        "source_name": MATERIALS_GRAD_SOURCE_NAME,
+        "source_type": MATERIALS_GRAD_SOURCE_TYPE,
+    },
+    {
+        "key": "eie_grad_notice",
+        "name": "항공전자정보공학부 대학원 공지사항",
+        "board_type": "kau_college",
+        "list_url": "http://college.kau.ac.kr/web/pages/gc23761b.do",
+        "site_flag": "eie_www",
+        "bbs_id": "0015",
+        "mnu_id": "gc23761b",
+        "bbs_auth": "30",
+        "page_unit": DEFAULT_POSTS_PER_BOARD,
+        "max_posts": DEFAULT_POSTS_PER_BOARD,
+        "source_name": EIE_GRAD_SOURCE_NAME,
+        "source_type": EIE_GRAD_SOURCE_TYPE,
     },
     {
         "key": "amtc_notice",

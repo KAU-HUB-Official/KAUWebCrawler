@@ -1,60 +1,53 @@
 # KAU Notice Hub Crawler
 
-한국항공대학교 통합 공지 크롤러 프로젝트입니다.
+한국항공대학교 주요 공지 게시판을 하나의 포맷으로 수집하는 통합 크롤러입니다.
 
-## 현재 범위
+## 프로젝트 구조
 
-- `kau.ac.kr` 공지 게시판 7종
-- `career.kau.ac.kr` 대학일자리센터 공지사항 게시판(`https://career.kau.ac.kr/ko/community/notice`)
-- `college.kau.ac.kr` 공지 게시판 9종
-  - 국제교류처(`gc63585b`)
-  - 인권센터(`gc22052b`)
-  - 생활관(`gc65332b`)
-  - 항공우주박물관(`gc73673b`)
-  - 항공교통관제교육원(`gc80226b`)
-  - 항공안전교육원(`gc63977b`)
-  - 평생교육원(`gc11101b`)
-  - 드림칼리지디자인(`gc24251b`)
-  - 항공우주정책대학원(`gc91652b`)
-- `research.kau.ac.kr` 산학협력단 공지사항
-- `ibhak.kau.ac.kr` 입학처 공지사항
-- `ctl.kau.ac.kr` 교수학습센터 공지사항
-- `lib.kau.ac.kr` 학술정보관 일반공지
-- `ftc.kau.ac.kr` 비행교육원 공지사항
-- `amtc.kau.ac.kr` 항공기술교육원 공지사항
-- `fsc.kau.ac.kr` 새내기성공센터 공지사항
-- `grad.kau.ac.kr` 대학원 공지사항
-- `gradbus.kau.ac.kr` 경영대학원 공지사항
-- `lms.kau.ac.kr` LMS 공지사항(`id=55398`)
-- `asbt.kau.ac.kr` 첨단분야 부트캠프사업단 공지사항
+```text
+Crawler/
+├─ crawler/
+│  ├─ clients/      # 사이트별 HTTP 요청/robots 처리
+│  ├─ parsers/      # 목록/상세 파싱
+│  ├─ policies/     # 최근성/상시공지 정책
+│  ├─ services/     # 보드 수집 엔진/레지스트리/중복 제거
+│  ├─ models/       # Post 데이터 모델
+│  ├─ utils/        # 로깅/JSON 저장
+│  ├─ config.py     # 보드 설정 및 공통 상수
+│  └─ main.py       # 엔트리포인트
+├─ docs/            # 운영/개발 문서
+└─ output/          # 실행 산출물(JSON, 로그)
+```
 
-## 최적화
+## 현재 수집 범위
 
-### 문제-해결 매핑
+현재 기본 설정(`NOTICE_BOARDS`) 기준 30개 게시판을 수집합니다.
 
-| 문제                                                                                              | 해결                                                                                                                  |
-| ------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| 게시판을 최신순으로 조회할 때 이미 수집한 공지를 다음 실행에서도 다시 상세 요청하는 오버헤드 발생 | 증분 수집 적용: 기존 `output/kau_official_posts.json`의 `original_url`을 캐시로 사용해 이미 수집한 URL 상세 요청 생략 |
-| 같은 게시글이 `page`, `searchkey` 등 쿼리 파라미터만 달라진 URL로 중복 인식                       | URL 정규화(canonical) 적용: 중복에 영향 없는 쿼리 파라미터 제거 후 동일 게시글 URL 통합                               |
-| 서로 다른 홈페이지/게시판에 동일 공지가 재게시될 때 URL이 달라 중복 저장                          | 제목 기반 중복 제거 적용: URL 1차 중복 제거 후 제목 정규화(공백 정리, 소문자화) 기준으로 1건만 유지                   |
-| 새 공지가 거의 없는 상황에서도 여러 페이지를 끝까지 순회해 네트워크 비용 증가                     | 목록 조기 종료 적용: 목록 페이지에서 신규 URL이 0개면 해당 게시판의 다음 페이지 순회 중단                             |
-| `robots.txt` 차단 게시판에서 반복 시도 시 불필요 요청/로그 누적                                   | robots 차단 조기 종료 적용: 차단 확인 시 페이지 루프 즉시 종료 (`kau_career` 보드는 사용자 요청으로 정책 예외 처리)   |
+- `kau.ac.kr` 공식 공지 7종
+- `career.kau.ac.kr` 대학일자리센터 공지 1종
+- `college.kau.ac.kr` 계열 공지 11종
+- `research.kau.ac.kr` 산학협력단 공지 1종
+- `ibhak.kau.ac.kr` 입학처 공지 1종
+- `ctl.kau.ac.kr` 교수학습센터 공지 1종
+- `lib.kau.ac.kr` 학술정보관 공지 1종
+- `ftc.kau.ac.kr` 비행교육원 공지 1종
+- `amtc.kau.ac.kr` 항공기술교육원 공지 1종
+- `fsc.kau.ac.kr`, `grad.kau.ac.kr`, `gradbus.kau.ac.kr` 공지 3종
+- `lms.kau.ac.kr` LMS 공지 1종 (`id=55398`)
+- `asbt.kau.ac.kr` 첨단분야 부트캠프사업단 공지 1종
 
-## 크롤링 규칙 (요약)
+참고: `kau_eslscat` 구현은 존재하지만 기본 수집 대상(`NOTICE_BOARDS`)에는 포함되어 있지 않습니다.
 
-- 목록 수집은 `--max-pages` 범위 내에서 페이지를 순회합니다.
-- 목록 항목은 `url + is_permanent_notice(상시공지 여부)`로 수집합니다.
-- 기존 결과 파일의 `original_url`(canonical)을 캐시로 사용해 이미 수집한 URL은 상세 요청에서 제외합니다.
-- 목록 페이지에서 신규 URL이 0건이면 해당 게시판 목록 순회를 조기 종료합니다.
-- 상세 수집 규칙:
-  - 상시공지(`is_permanent_notice=true`)는 게시일과 무관하게 모두 수집합니다.
-  - 일반공지는 `RECENT_NOTICE_DAYS=365` 이내 게시글만 수집합니다.
-  - 일반공지에서 작성일이 1년 전 이상이거나 게시일 미확인 글을 만나면 해당 게시판의 상세 수집을 즉시 중단합니다.
-  - `title` 또는 `content`가 비어 있으면 `required_field_empty`로 실패 처리합니다.
-- 최종 결과 저장 전 중복 제거:
-  - 1차: canonical `original_url` 기준 중복 제거
-  - 2차: 제목 정규화(공백 정리 + 소문자화) 기준 통합
-    - 동일 제목이 여러 홈페이지에 존재하면 `source_name`, `source_type`, `category_raw`를 배열로 병합 저장
+## 핵심 동작
+
+- 목록은 `--max-pages` 범위에서 순회
+- 목록 항목은 `url + is_permanent_notice`로 관리
+- 기존 결과 파일의 `original_url`을 캐시로 사용해 상세 요청 중복 방지
+- 목록 페이지에서 신규 URL이 0건이면 해당 보드 조기 종료
+- 상시공지는 날짜와 무관하게 수집
+- 일반공지는 최근 1년(`RECENT_NOTICE_DAYS = 365`)만 수집
+- 일반공지에서 기준일 이전/같은 날짜 또는 게시일 미확인 항목을 만나면 해당 보드 상세 수집 중단
+- 저장 전 URL 기준 1차, 제목 정규화 기준 2차 중복 제거
 
 ## 빠른 실행
 
@@ -63,9 +56,15 @@ pip install requests beautifulsoup4
 python3 crawler/main.py --max-pages 1
 ```
 
-## 문서 안내
+## 기본 산출물
 
-세부 문서는 `docs/`로 분리했습니다.
+- 게시글: `output/kau_official_posts.json`
+- 실패 내역: `output/kau_official_failed.json`
+- 로그: `output/crawler.log`
+
+참고: `--output`으로 결과 파일 경로를 바꾸면, 다음 실행 시 해당 파일이 증분 수집 기준 파일로 사용됩니다.
+
+## 문서 안내
 
 - [문서 인덱스](./docs/README.md)
 - [프로젝트 개요](./docs/01_project_overview.md)
@@ -76,9 +75,3 @@ python3 crawler/main.py --max-pages 1
 - [운영/장애 대응](./docs/06_operations_and_failure.md)
 - [확장 가이드](./docs/07_extension_guide.md)
 - [크롤링 규칙 상세](./docs/08_crawling_rules.md)
-
-## 산출물
-
-- `output/kau_official_posts.json`
-- `output/kau_official_failed.json`
-- `output/crawler.log`

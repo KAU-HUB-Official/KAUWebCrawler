@@ -1,62 +1,80 @@
 # 크롤링 규칙 상세
 
-이 문서는 현재 크롤러가 게시판을 수집할 때 적용하는 정책을 운영 관점에서 정리한 기준 문서입니다.
+이 문서는 현재 크롤러의 수집 정책을 운영 관점에서 설명합니다.
+기준 코드:
 
-## 적용 코드
-- 실행 오케스트레이션: `crawler/main.py`
-- 보드 공통 수집 엔진: `crawler/services/board_crawler.py`
-- 보드 타입별 매핑: `crawler/services/board_registry.py`
-- 기간 설정: `crawler/config.py` (`RECENT_NOTICE_DAYS = 365`)
-- 최근성/상시공지 정책: `crawler/policies/notice_policy.py`
-- URL 정규화/중복 병합: `crawler/services/url_normalizer.py`, `crawler/services/dedup_service.py`
-- 목록 항목 메타(`is_permanent_notice`) 판정: 각 parser의 `parse_post_items`
+- `crawler/main.py`
+- `crawler/services/board_crawler.py`
+- `crawler/services/board_registry.py`
+- `crawler/policies/notice_policy.py`
+- `crawler/services/url_normalizer.py`
+- `crawler/services/dedup_service.py`
 
-## 1) 수집 한도와 페이지 순회
-- 목록은 `--max-pages` 범위 내에서 페이지 단위로 순회합니다.
-- 목록 항목은 URL과 상시공지 여부(`is_permanent_notice`)를 함께 관리합니다.
-- 건수 제한(`max_posts`) 없이 조건에 맞는 상세 공지를 계속 수집합니다.
+## 1) 페이지 순회
 
-## 2) 상시공지 / 일반공지 정책
-- 상시공지(`is_permanent_notice=true`):
-  - 게시일과 무관하게 모두 수집합니다.
-- 일반공지(`is_permanent_notice=false`):
-  - 최근 `RECENT_NOTICE_DAYS`(기본 365일) 이내 게시글만 수집합니다.
-  - 작성일이 1년 전 이상이거나 날짜 미확인 글을 만나면 해당 게시판 상세 수집을 즉시 중단합니다.
+- 목록은 `--max-pages` 기준으로 순회합니다.
+- adapter에 `min_pages_field`가 있으면 `effective_max_pages = max(max_pages, min_pages)`를 사용합니다.
+  - 예: `job_notice`는 `min_pages=2`
+- 목록 항목은 `url`, `page`, `is_permanent_notice`로 관리합니다.
+- 목록 페이지에서 신규 URL이 0건이면 해당 보드 순회를 조기 종료합니다.
 
-## 3) 최근 1년 필터 세부 동작
-- 기준일: 크롤링 실행 시점 `now - RECENT_NOTICE_DAYS`
-- `published_at` 파싱 성공:
-  - 기준일 이내면 수집
-  - 기준일과 같거나 이전이면 일반공지는 스킵 + 보드 상세 수집 중단
-- `published_at` 파싱 실패/누락:
-  - 상시공지는 수집
-  - 일반공지는 스킵 + 보드 상세 수집 중단 트리거
+## 2) 상세 수집 순서
 
-## 4) 증분 수집 및 조기 종료
-- 기존 결과(`output/kau_official_posts.json`)의 `original_url`을 캐시로 사용합니다.
+- 목록 중복 제거 후 상세 대상은 다음 순서로 재정렬됩니다.
+  1. 상시공지(`is_permanent_notice=true`)
+  2. 일반공지(`is_permanent_notice=false`)
+- 상시공지를 먼저 처리해 오래된 공지라도 누락되지 않도록 합니다.
+
+## 3) 최근성 정책 (`RECENT_NOTICE_DAYS = 365`)
+
+컷오프 계산:
+
+- `cutoff_date = today - 365일`
+- 최근 공지 판단식: `published_date > cutoff_date`
+
+즉, 컷오프 날짜와 같은 날짜는 최근으로 보지 않습니다.
+
+세부 동작:
+
+- 상시공지
+  - 게시일과 무관하게 포함
+- 일반공지
+  - `published_at` 파싱 성공 + `published_date > cutoff_date`인 경우만 포함
+  - 그 외(컷오프 이전/같은 날짜, 게시일 미확인)는 제외 + 해당 보드 상세 수집 즉시 중단
+
+## 4) 증분 수집
+
+- 실행 시작 시 결과 파일(`--output`)의 `original_url`을 읽어 `known_urls` 캐시를 구성합니다.
 - 캐시에 있는 URL은 상세 요청하지 않습니다.
-- 목록 페이지에서 신규 URL이 0건이면 해당 게시판의 다음 페이지 순회를 종료합니다.
+- 새로 수집된 post의 canonical URL은 즉시 `known_urls`에 반영됩니다.
 
-## 5) 중복 제거 정책
-- 1차: canonical `original_url` 기준 중복 제거
+## 5) 중복 제거
+
+- 1차: URL canonicalization 기준 중복 제거
 - 2차: 제목 정규화 기준 통합
   - 공백 정리
   - 소문자화
-- 제목 중복 처리:
-  - 동일 제목은 1건으로 통합 저장
-  - `source_name`, `source_type`, `category_raw`는 배열로 병합 저장
-  - 상세 출처 메타는 `source_meta` 배열에 누적 저장
-- 목적: 교차 홈페이지 재게시 공지 통합 + 출처 메타 보존
 
-## 6) 실패 기록 기준
-- `request_failed`: HTTP 실패/타임아웃/네트워크 오류
-- `parse_error:<Exception>`: 파싱 중 예외
-- `required_field_empty`: `title` 또는 `content` 누락
-- `robots_disallowed`: robots 정책으로 요청 차단
-- `missing_ntt_id`: `college.kau.ac.kr` 상세 URL에서 `nttId` 식별자 누락
-- `missing_notice_id`: `eslscat` 상세 URL에서 `id` 식별자 누락
+제목 통합 시:
 
-## 7) 운영 시 권장값
-- 상시공지 비율이 높은 게시판(예: 학사공지)에서 누락을 줄이려면:
-  - `--max-pages`를 늘려 목록 탐색 범위를 확보합니다.
-- 정책 변경 시에는 `crawler/policies/notice_policy.py`, `crawler/services/board_crawler.py`와 본 문서를 함께 업데이트합니다.
+- 동일 제목 공지를 1건으로 저장
+- `source_name`, `source_type`, `category_raw`를 배열로 병합
+- `source_meta` 배열에 출처 메타 누적
+- 첨부파일은 URL 기준으로 병합
+
+## 6) 실패 기록
+
+- `request_failed`
+- `parse_error:<Exception>`
+- `required_field_empty`
+- `robots_disallowed`
+- `missing_ntt_id` (`kau_college`)
+- `missing_notice_id` (`kau_eslscat`)
+
+## 7) 운영 시 참고
+
+- `max_posts` 설정값은 현재 상세 수집 상한으로 직접 사용되지 않습니다.
+- 정책 변경 시 다음 파일을 함께 업데이트해야 합니다.
+  - `crawler/policies/notice_policy.py`
+  - `crawler/services/board_crawler.py`
+  - 본 문서(`docs/08_crawling_rules.md`)

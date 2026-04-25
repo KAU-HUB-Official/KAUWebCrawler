@@ -1,8 +1,10 @@
 # 문서 인덱스
 
-이 디렉터리는 KAU Notice Hub 크롤러 문서를 주제별로 분리해 정리한 공간입니다.
+이 디렉터리는 KAU Notice Hub 크롤러 문서를 주제별로 분리한 안내서입니다.
+아래 문서는 현재 코드(`crawler/`) 기준으로 정리되어 있습니다.
 
 ## 문서 목록
+
 1. [프로젝트 개요](./01_project_overview.md)
 2. [실행 가이드](./02_quickstart.md)
 3. [크롤링 대상](./03_crawl_targets.md)
@@ -13,16 +15,17 @@
 8. [크롤링 규칙 상세](./08_crawling_rules.md)
 
 ## 권장 읽기 순서
-- 처음 온 경우: `01 -> 02 -> 03`
-- 구조 이해가 필요한 경우: `04 -> 05`
-- 운영/배포 담당: `06`
-- 신규 사이트 추가 개발: `07`
-- 수집 정책 확인/변경: `08`
+
+- 처음 파악할 때: `01 -> 02 -> 03`
+- 구조/코드 매핑이 필요할 때: `04 -> 05`
+- 운영 모니터링/장애 대응: `06 -> 08`
+- 신규 사이트/보드 추가 개발: `07`
 
 ## 관련 경로
-- 크롤러 엔트리포인트: `crawler/main.py`
-- 공통 설정: `crawler/config.py`
+
+- 엔트리포인트: `crawler/main.py`
+- 설정: `crawler/config.py`
 - 보드 수집 엔진: `crawler/services/board_crawler.py`
 - 보드 타입 레지스트리: `crawler/services/board_registry.py`
 - 수집 정책: `crawler/policies/notice_policy.py`
-- 결과 산출물: `output/`
+- 결과 산출물 디렉터리: `output/`
